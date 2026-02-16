@@ -87,7 +87,8 @@ bash src/update_geodb.sh
 ### 3. Install Python dependencies (on host)
 
 ```bash
-pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
 ```
 
 ### 4. Start the containers
@@ -124,7 +125,7 @@ Add:
 Run the ingestion manually once to populate historical data:
 
 ```bash
-sudo python3 src/ingest.py
+sudo .venv/bin/python3 src/ingest.py
 ```
 
 ## Project Structure
@@ -158,6 +159,7 @@ ssh-radar/
 ├── tests/
 │   ├── test_parser.py           # 18 parser tests
 │   ├── test_geolocate.py        # 17 geolocation tests (3 skip without DB)
+│   ├── test_integration.py      # 10 integration tests (real PostgreSQL)
 │   └── fixtures/
 │       └── sample_lastb.txt     # Test data
 └── data/                        # GeoLite2-City.mmdb (gitignored)
@@ -166,10 +168,10 @@ ssh-radar/
 ## Testing
 
 ```bash
-python3 -m pytest tests/ -v
+.venv/bin/python3 -m pytest tests/ -v
 ```
 
-35 tests total (32 pass, 3 skip). The 3 skipped tests require the GeoLite2 `.mmdb` database file in `data/`.
+45 tests total (42 pass, 3 skip). The 3 skipped tests require the GeoLite2 `.mmdb` database file in `data/`. Integration tests auto-start a temporary PostgreSQL Docker container.
 
 ## Tech Stack
 

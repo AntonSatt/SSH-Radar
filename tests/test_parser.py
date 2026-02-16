@@ -129,7 +129,7 @@ class TestParseLastbOutput:
         text = _load_fixture("sample_lastb.txt")
         results = parse_lastb_output(text)
 
-        # 18 lines total: 15 login attempts + 2 skip (reboot, shutdown) + 1 skip (btmp begins)
+        # 19 lines total: 15 login attempts + 2 skip (reboot, shutdown) + 1 blank + 1 footer (btmp begins)
         assert len(results) == 15
 
     def test_no_reboot_or_shutdown_in_results(self):

@@ -39,7 +39,7 @@ def get_ungeolocated_ips() -> list[str]:
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT DISTINCT fl.source_ip::TEXT
+            SELECT DISTINCT host(fl.source_ip)
             FROM failed_logins fl
             LEFT JOIN ip_geolocations geo ON fl.source_ip = geo.ip
             WHERE fl.source_ip IS NOT NULL

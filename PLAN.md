@@ -39,6 +39,8 @@ ssh-radar/
 │   ├── geolocate.py         # MaxMind GeoLite2 enrichment
 │   ├── config.py            # DB connection, settings
 │   └── update_geodb.sh      # download/refresh GeoLite2 DB
+├── scripts/
+│   └── run_ingest.sh        # host cron runner script
 ├── grafana/
 │   ├── provisioning/
 │   │   ├── datasources/
@@ -49,19 +51,26 @@ ssh-radar/
 │       └── ssh-radar.json
 ├── frontend/
 │   ├── package.json
+│   ├── index.html           # Vite entry point
+│   ├── tsconfig.json
 │   ├── vite.config.ts
 │   ├── src/
 │   │   ├── App.tsx
-│   │   ├── components/
-│   │   │   ├── Header.tsx
-│   │   │   ├── StatsBar.tsx
-│   │   │   └── DashboardEmbed.tsx
-│   │   └── main.tsx
+│   │   ├── App.css
+│   │   ├── main.tsx
+│   │   └── components/
+│   │       ├── Header.tsx
+│   │       ├── Header.css
+│   │       ├── StatsBar.tsx
+│   │       ├── StatsBar.css
+│   │       ├── DashboardEmbed.tsx
+│   │       └── DashboardEmbed.css
 │   ├── Dockerfile
 │   └── nginx.conf
 ├── tests/
 │   ├── test_parser.py
 │   ├── test_geolocate.py
+│   ├── test_integration.py
 │   └── fixtures/
 │       └── sample_lastb.txt
 └── README.md
@@ -75,12 +84,13 @@ ssh-radar/
   - `failed_logins` table: `id SERIAL PRIMARY KEY`, `username VARCHAR(64)`, `source_ip INET`, `timestamp TIMESTAMPTZ`, `terminal VARCHAR(64)`, `protocol VARCHAR(16)`, `raw_line TEXT`, `created_at TIMESTAMPTZ DEFAULT NOW()`
   - `ip_geolocations` table: `ip INET PRIMARY KEY`, `country_code CHAR(2)`, `country VARCHAR(64)`, `city VARCHAR(128)`, `latitude DOUBLE PRECISION`, `longitude DOUBLE PRECISION`, `asn VARCHAR(128)`, `last_updated TIMESTAMPTZ DEFAULT NOW()`
   - Indexes on `failed_logins(timestamp)`, `failed_logins(source_ip)`, `failed_logins(username)`
-  - Unique constraint on `failed_logins(username, source_ip, timestamp)` for deduplication
+  - Unique constraint on `failed_logins(username, source_ip, timestamp)` for deduplication (`NULLS NOT DISTINCT` for console logins with no IP)
 
 - [x] **1.2** Write `sql/002_views.sql`
   - View `login_attempts_geo`: join `failed_logins` with `ip_geolocations` on `source_ip = ip`
   - Materialized view `daily_stats`: attempts per day, unique IPs, unique usernames
   - Materialized view `monthly_stats`: same aggregated by month
+  - Materialized view `country_stats`: attempts aggregated by country (excludes private IPs)
   - Refresh function or note that materialized views are refreshed after each ingestion
 
 - [x] **1.3** Write `src/parser.py`
@@ -117,7 +127,7 @@ ssh-radar/
   - Log summary: X new records inserted, Y IPs geolocated
 
 - [x] **2.3** Write `requirements.txt`
-  - `psycopg2-binary`, `geoip2`, `python-dotenv`
+  - `psycopg2-binary`, `geoip2`, `python-dotenv`, `pytest`
 
 ## Phase 3: Geolocation Enrichment
 
@@ -217,7 +227,7 @@ ssh-radar/
 
 - [x] **6.3** Build `StatsBar` component
   - Fetch headline stats from Grafana API (or a small Python API endpoint)
-  - Display: total attacks, unique IPs, countries, most targeted username
+  - Display: total attacks, unique IPs, countries, attempts today
   - Auto-refresh every 60 seconds
 
 - [x] **6.4** Build `DashboardEmbed` component
@@ -240,12 +250,12 @@ ssh-radar/
 - [ ] **7.4** Oracle Cloud security list: only ports 80 and 443 open inbound
 - [x] **7.5** No secrets in git — `.env` in `.gitignore`, `.env.example` committed
 - [x] **7.6** Docker containers run as non-root where possible
-- [x] **7.7** Rate limiting on Nginx if needed
+- [x] **7.7** Rate limiting on Nginx (deferred — not yet needed for a portfolio project with low traffic)
 
 ## Phase 8: Testing & Documentation
 
 - [x] **8.1** All unit tests pass (`pytest tests/`)
-- [ ] **8.2** Integration test: feed `sample_lastb.txt` through full pipeline, verify records in DB and geolocations populated
+- [x] **8.2** Integration test: feed `sample_lastb.txt` through full pipeline, verify records in DB and geolocations populated
 - [x] **8.3** Write `README.md`
   - Project description and motivation
   - Architecture diagram (text-based or image)
@@ -258,11 +268,12 @@ ssh-radar/
 
 ## Notes for LLM Continuation
 
-- **Current status**: Phases 1-7 complete (7.4 is manual on Oracle Cloud). Phase 8 partially complete (tests pass, README written, integration test and portfolio still pending).
+- **Current status**: Phases 1-8 code-complete (7.4 is manual on Oracle Cloud, 8.4 is manual portfolio update). Integration test written and passing.
 - **Working directory**: `/home/kaffe/Documents/github_projects/login-tracker/` (repo name: `ssh-radar`)
 - **When picking up**: Read this file, find the first unchecked `- [ ]` item, and start there.
 - **When completing a task**: Change `- [ ]` to `- [x]` for that item before moving to the next.
-- **All tests pass**: Run `python3 -m pytest tests/ -v` to verify (35 collected: 32 passed, 3 skipped without GeoLite2 DB).
+- **All tests pass**: Run `python3 -m pytest tests/ -v` to verify (45 collected: 42 passed, 3 skipped without GeoLite2 DB). Integration tests (10) require Docker.
+- **Note**: `python-dotenv` is listed in `requirements.txt` but not used in code. Environment variables are loaded by `scripts/run_ingest.sh` via `source .env` instead. Keep the dependency for potential future use or remove it to stay lean.
 - **Important design decisions already made**:
   - Ingestion runs on the HOST (not in Docker) because `lastb` needs `/var/log/btmp` access
   - PostgreSQL port only exposed on localhost (`127.0.0.1:5432`) for the host-based ingestion script
@@ -273,13 +284,12 @@ ssh-radar/
   - Docker containers expose ports on `127.0.0.1` only (3000 for Grafana, 8080 for frontend)
 - **Remaining work**:
   - 7.4: Configure Oracle Cloud security list (manual, not code)
-  - 8.2: Integration test with real DB (needs Docker running)
   - 8.4: Add to portfolio (manual)
 - **To deploy**:
   1. Clone repo to Oracle server
   2. Copy `.env.example` to `.env`, fill in real values
   3. Run `bash src/update_geodb.sh` to download GeoLite2 DB
-  4. Run `pip install -r requirements.txt` on host (for ingestion script)
+   4. Create venv and install Python deps on host: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`
   5. Run `docker compose up -d`
   6. Copy Nginx config: `sudo cp nginx/ssh-radar.conf /etc/nginx/sites-available/ssh-radar`
   7. Enable site: `sudo ln -s /etc/nginx/sites-available/ssh-radar /etc/nginx/sites-enabled/`
