@@ -39,11 +39,6 @@ const PANELS = [
     title: 'Unique IPs by Country',
     className: 'panel-half panel-pie',
   },
-  {
-    id: 11,
-    title: 'Recent Attempts',
-    className: 'panel-wide',
-  },
 ]
 
 function DashboardEmbed() {
