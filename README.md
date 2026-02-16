@@ -75,6 +75,7 @@ Edit `.env` and fill in:
 - `POSTGRES_PASSWORD` — a strong password for the database
 - `DB_PASSWORD` — same password (used by the host ingestion script)
 - `GF_SECURITY_ADMIN_PASSWORD` — Grafana admin password
+- `MAXMIND_ACCOUNT_ID` — your MaxMind account ID (shown on your account page)
 - `MAXMIND_LICENSE_KEY` — your GeoLite2 license key
 - `DOMAIN` — your domain (e.g. `ssh-radar.antonsatt.com`)
 

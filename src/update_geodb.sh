@@ -5,9 +5,10 @@
 # Requires a free MaxMind license key:
 #   1. Sign up at https://www.maxmind.com/en/geolite2/signup
 #   2. Generate a license key at https://www.maxmind.com/en/accounts/current/license-key
-#   3. Set the MAXMIND_LICENSE_KEY environment variable
+#   3. Set MAXMIND_LICENSE_KEY and MAXMIND_ACCOUNT_ID environment variables
 #
 # Usage:
+#   export MAXMIND_ACCOUNT_ID="your_account_id"
 #   export MAXMIND_LICENSE_KEY="your_key_here"
 #   bash src/update_geodb.sh
 #
@@ -27,7 +28,16 @@ if [ -z "${MAXMIND_LICENSE_KEY:-}" ]; then
     echo "To get a free license key:"
     echo "  1. Sign up at https://www.maxmind.com/en/geolite2/signup"
     echo "  2. Generate a key at https://www.maxmind.com/en/accounts/current/license-key"
-    echo "  3. Run: export MAXMIND_LICENSE_KEY='your_key_here'"
+    echo "  3. Run: export MAXMIND_ACCOUNT_ID='your_account_id'"
+    echo "         export MAXMIND_LICENSE_KEY='your_key_here'"
+    exit 1
+fi
+
+if [ -z "${MAXMIND_ACCOUNT_ID:-}" ]; then
+    echo "ERROR: MAXMIND_ACCOUNT_ID environment variable is not set."
+    echo ""
+    echo "Your Account ID is shown at https://www.maxmind.com/en/accounts/current"
+    echo "  Run: export MAXMIND_ACCOUNT_ID='your_account_id'"
     exit 1
 fi
 
@@ -35,11 +45,11 @@ fi
 
 mkdir -p "$DATA_DIR"
 
-DOWNLOAD_URL="https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=${MAXMIND_LICENSE_KEY}&suffix=tar.gz"
+DOWNLOAD_URL="https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz"
 TEMP_FILE=$(mktemp /tmp/geolite2-city.XXXXXX.tar.gz)
 
 echo "Downloading GeoLite2-City database..."
-if ! curl -sS -o "$TEMP_FILE" "$DOWNLOAD_URL"; then
+if ! curl -sS -u "${MAXMIND_ACCOUNT_ID}:${MAXMIND_LICENSE_KEY}" -o "$TEMP_FILE" "$DOWNLOAD_URL"; then
     echo "ERROR: Download failed. Check your license key."
     rm -f "$TEMP_FILE"
     exit 1
