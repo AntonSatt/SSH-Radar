@@ -71,11 +71,14 @@ services:
       dockerfile: Dockerfile
     container_name: ssh-radar-frontend
     restart: unless-stopped
-    ports:
-      # Only localhost — Nginx on host reverse-proxies to this
-      - "127.0.0.1:8080:80"
+    environment:
+      VIRTUAL_HOST: ${DOMAIN:-ssh-radar.antonsatt.com}
+      LETSENCRYPT_HOST: ${DOMAIN:-ssh-radar.antonsatt.com}
+    expose:
+      - "80"
     networks:
       - internal
+      - btcpay_network
 
 volumes:
   pgdata:
@@ -84,3 +87,6 @@ volumes:
 networks:
   internal:
     driver: bridge
+  btcpay_network:
+    external: true
+    name: generated_default
