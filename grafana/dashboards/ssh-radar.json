@@ -542,7 +542,7 @@
       ]
     }
   ],
-  "refresh": "5m",
+  "refresh": "",
   "schemaVersion": 39,
   "tags": ["ssh-radar", "security"],
   "templating": {

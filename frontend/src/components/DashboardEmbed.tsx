@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './DashboardEmbed.css'
 
 // Grafana panel embed URLs using kiosk mode
 // These embed individual panels from the provisioned dashboard
 const GRAFANA_BASE = '/grafana/d-solo/ssh-radar-main/ssh-radar'
 const DEFAULT_TIME = 'from=now-30d&to=now'
+const REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutes
 
 const PANELS = [
   {
@@ -47,6 +48,16 @@ const PANELS = [
 
 function DashboardEmbed() {
   const [mapExpanded, setMapExpanded] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(Date.now())
+
+  // Reload all iframes every 5 minutes instead of relying on Grafana's internal refresh
+  useEffect(() => {
+    const interval = setInterval(() => setRefreshKey(Date.now()), REFRESH_INTERVAL)
+    return () => clearInterval(interval)
+  }, [])
+
+  const buildSrc = (panelId: number, time?: string) =>
+    `${GRAFANA_BASE}?orgId=1&panelId=${panelId}&theme=dark&kiosk&refresh=&${time ?? DEFAULT_TIME}&_t=${refreshKey}`
 
   return (
     <div className="dashboard-grid">
@@ -72,7 +83,7 @@ function DashboardEmbed() {
         </button>
         {mapExpanded && (
           <iframe
-            src={`${GRAFANA_BASE}?orgId=1&panelId=7&theme=dark&kiosk&${DEFAULT_TIME}`}
+            src={buildSrc(7)}
             frameBorder="0"
             className="panel-iframe"
             title="Attack Origins"
@@ -84,7 +95,7 @@ function DashboardEmbed() {
         <div key={panel.id} className={`dashboard-panel ${panel.className}`}>
           <h3 className="panel-title">{panel.title}</h3>
           <iframe
-            src={`${GRAFANA_BASE}?orgId=1&panelId=${panel.id}&theme=dark&kiosk&${panel.time ?? DEFAULT_TIME}`}
+            src={buildSrc(panel.id, panel.time)}
             frameBorder="0"
             className="panel-iframe"
             title={panel.title}
