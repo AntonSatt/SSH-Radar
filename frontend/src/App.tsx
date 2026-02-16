@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import StatsBar from './components/StatsBar'
+import TopUsernames from './components/TopUsernames'
 import LiveFeed from './components/LiveFeed'
 import DashboardEmbed from './components/DashboardEmbed'
 import About from './components/About'
@@ -28,6 +29,7 @@ function App() {
         ) : (
           <>
             <StatsBar />
+            <TopUsernames />
             <LiveFeed />
             <DashboardEmbed />
           </>
