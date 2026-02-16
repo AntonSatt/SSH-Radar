@@ -84,12 +84,17 @@ Edit `.env` and fill in:
 - `MAXMIND_ACCOUNT_ID` — your MaxMind account ID (shown at https://www.maxmind.com/en/accounts/current)
 - `MAXMIND_LICENSE_KEY` — your GeoLite2 license key
 - `DOMAIN` — your domain (e.g. `ssh-radar.antonsatt.com`)
+- `MAXMIND_DB_PATH` — adjust to match your install location (e.g. `/home/ubuntu/apps/ssh-radar/data/GeoLite2-City.mmdb`)
+
+**Important:** If your password contains special characters (like `&`, `!`, `$`), ensure it does not conflict with shell interpretation. The ingestion script loads `.env` line-by-line to handle this safely.
 
 ### 2. Download the GeoLite2 database
 
 ```bash
 bash src/update_geodb.sh
 ```
+
+The script reads `MAXMIND_ACCOUNT_ID` and `MAXMIND_LICENSE_KEY` from your `.env` file automatically.
 
 ### 3. Install Python dependencies (on host)
 
@@ -99,6 +104,15 @@ python3 -m venv .venv
 ```
 
 ### 4. Start the containers
+
+The `docker-compose.yml` connects the frontend to an external Docker network so that an existing nginx-proxy can discover it. By default it expects a network called `generated_default` — update the `btcpay_network` section in `docker-compose.yml` to match your nginx-proxy's network:
+
+```bash
+# Find your nginx-proxy's network name:
+docker inspect <your-nginx-proxy-container> --format '{{json .NetworkSettings.Networks}}' | python3 -m json.tool
+```
+
+Then update the network name in `docker-compose.yml` under `networks.btcpay_network.name` to match, and start the containers:
 
 ```bash
 docker compose up -d
@@ -116,18 +130,26 @@ The frontend container exposes `VIRTUAL_HOST` and `LETSENCRYPT_HOST` environment
 sudo crontab -e
 ```
 
-Add:
+Add (adjust the path to your install location):
 
 ```
-*/5 * * * * /opt/ssh-radar/scripts/run_ingest.sh >> /var/log/ssh-radar-ingest.log 2>&1
+*/5 * * * * /home/ubuntu/apps/ssh-radar/scripts/run_ingest.sh >> /var/log/ssh-radar-ingest.log 2>&1
 ```
+
+The `run_ingest.sh` script automatically loads `.env` from the project root, so no extra environment setup is needed.
 
 ### 6. Initial data load
 
 Run the ingestion manually once to populate historical data:
 
 ```bash
-sudo .venv/bin/python3 src/ingest.py
+sudo scripts/run_ingest.sh
+```
+
+If you have many existing login attempts, geolocation runs automatically for all new IPs. To backfill geolocation for previously ingested records:
+
+```bash
+sudo env $(grep -v '^#' .env | xargs) .venv/bin/python3 src/geolocate.py
 ```
 
 ## Project Structure
