@@ -32,10 +32,11 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.stat-card-blue  { border-left-color: #4f7df9; }
+.stat-card-blue   { border-left-color: #4f7df9; }
 .stat-card-orange { border-left-color: #f59e0b; }
-.stat-card-red   { border-left-color: #e74c3c; }
-.stat-card-green { border-left-color: #10b981; }
+.stat-card-red    { border-left-color: #e74c3c; }
+.stat-card-green  { border-left-color: #10b981; }
+.stat-card-purple { border-left-color: #a855f7; }
 
 .stat-value {
   font-size: 1.75rem;

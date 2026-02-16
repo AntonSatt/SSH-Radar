@@ -6,6 +6,7 @@ interface Stats {
   attemptsToday: number
   uniqueIps: number
   countries: number
+  daysOfData: number
 }
 
 function StatsBar() {
@@ -25,11 +26,12 @@ function StatsBar() {
               {
                 refId: 'stats',
                 datasource: { type: 'postgres', uid: 'ssh-radar-postgres' },
-                rawSql: `SELECT 
+                rawSql: `SELECT
                   (SELECT COUNT(*) FROM failed_logins) AS total_attempts,
                   (SELECT COUNT(*) FROM failed_logins WHERE timestamp >= CURRENT_DATE) AS attempts_today,
                   (SELECT COUNT(DISTINCT source_ip) FROM failed_logins) AS unique_ips,
-                  (SELECT COUNT(DISTINCT country_code) FROM ip_geolocations WHERE country_code != 'XX') AS countries`,
+                  (SELECT COUNT(DISTINCT country_code) FROM ip_geolocations WHERE country_code != 'XX') AS countries,
+                  (SELECT EXTRACT(DAY FROM NOW() - MIN(timestamp))::INT + 1 FROM failed_logins) AS days_of_data`,
                 format: 'table',
               },
             ],
@@ -44,12 +46,13 @@ function StatsBar() {
         const frames = data?.results?.stats?.frames
         if (frames && frames.length > 0) {
           const values = frames[0].data?.values
-          if (values && values.length >= 4) {
+          if (values && values.length >= 5) {
             setStats({
               totalAttempts: values[0]?.[0] ?? 0,
               attemptsToday: values[1]?.[0] ?? 0,
               uniqueIps: values[2]?.[0] ?? 0,
               countries: values[3]?.[0] ?? 0,
+              daysOfData: values[4]?.[0] ?? 0,
             })
           }
         }
@@ -79,6 +82,7 @@ function StatsBar() {
         <div className="stat-card skeleton" />
         <div className="stat-card skeleton" />
         <div className="stat-card skeleton" />
+        <div className="stat-card skeleton" />
       </div>
     )
   }
@@ -89,6 +93,7 @@ function StatsBar() {
       <StatCard label="Today" value={stats.attemptsToday} color="orange" />
       <StatCard label="Unique IPs" value={stats.uniqueIps} color="red" />
       <StatCard label="Countries" value={stats.countries} color="green" />
+      <StatCard label="Days of Data" value={stats.daysOfData} color="purple" />
     </div>
   )
 }
