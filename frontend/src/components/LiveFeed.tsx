@@ -14,14 +14,61 @@ const FETCH_INTERVAL = 60_000
 const DELAY_SECONDS = 300 // 5 minute replay delay
 const MAX_VISIBLE = 50
 
+// Web Audio blip sound — combo raises pitch
+function createBlipPlayer() {
+  let ctx: AudioContext | null = null
+  let combo = 0
+  let lastBlipTime = 0
+
+  return {
+    play() {
+      if (!ctx) ctx = new AudioContext()
+      if (ctx.state === 'suspended') ctx.resume()
+
+      const now = performance.now()
+      if (now - lastBlipTime < 2000) {
+        combo = Math.min(combo + 1, 8)
+      } else {
+        combo = 0
+      }
+      lastBlipTime = now
+
+      const freq = 600 + combo * 80 // 600Hz base, up to ~1240Hz
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+
+      const t = ctx.currentTime
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.15, t + 0.005) // 5ms attack
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08) // 75ms decay
+
+      osc.start(t)
+      osc.stop(t + 0.1)
+    },
+  }
+}
+
 function LiveFeed() {
   const [visible, setVisible] = useState<Attempt[]>([])
   const [expanded, setExpanded] = useState(true)
+  const [soundEnabled, setSoundEnabled] = useState(false)
   const queueRef = useRef<Attempt[]>([]) // sorted by epoch ascending
   const seenRef = useRef<Set<string>>(new Set())
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isFirstFetch = useRef(true)
   const listRef = useRef<HTMLDivElement>(null)
+  const blipRef = useRef(createBlipPlayer())
+  const soundEnabledRef = useRef(false)
+
+  // Keep ref in sync with state so the timeout callback sees the latest value
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled
+  }, [soundEnabled])
 
   const makeKey = (a: Attempt) => `${a.epoch}-${a.ip}-${a.username}`
 
@@ -39,6 +86,11 @@ function LiveFeed() {
     timerRef.current = setTimeout(() => {
       queueRef.current.shift()
       setVisible((prev) => [next, ...prev].slice(0, MAX_VISIBLE))
+
+      if (soundEnabledRef.current) {
+        blipRef.current.play()
+      }
+
       scheduleNext()
     }, waitMs)
   }, [])
@@ -174,26 +226,47 @@ function LiveFeed() {
 
   return (
     <div className="live-feed">
-      <button className="live-feed-header" onClick={() => setExpanded(!expanded)}>
-        <div className="live-feed-title">
-          <span className="live-dot" />
-          Live Feed
-          <span className="live-feed-subtitle">Failed login attempts (5 min delay)</span>
-        </div>
-        <svg
-          className={`live-feed-toggle ${expanded ? 'live-feed-toggle-open' : ''}`}
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      <div className="live-feed-header">
+        <button className="live-feed-toggle-btn" onClick={() => setExpanded(!expanded)}>
+          <div className="live-feed-title">
+            <span className="live-dot" />
+            Live Feed
+            <span className="live-feed-subtitle">Failed login attempts (5 min delay)</span>
+          </div>
+          <svg
+            className={`live-feed-toggle ${expanded ? 'live-feed-toggle-open' : ''}`}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        <button
+          className={`sound-toggle ${soundEnabled ? 'sound-toggle-on' : ''}`}
+          onClick={() => setSoundEnabled(!soundEnabled)}
+          title={soundEnabled ? 'Mute sound' : 'Enable sound'}
         >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
+          {soundEnabled ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <line x1="23" y1="9" x2="17" y2="15" />
+              <line x1="17" y1="9" x2="23" y2="15" />
+            </svg>
+          )}
+        </button>
+      </div>
       {expanded && (
         <div className="live-feed-list" ref={listRef}>
           {visible.map((a, i) => (
