@@ -19,6 +19,18 @@
   gap: 0.75rem;
 }
 
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.header-brand:hover {
+  color: var(--color-text);
+}
+
 .header-icon {
   color: var(--color-danger);
   display: flex;
@@ -51,6 +63,10 @@
 }
 
 .header-link:hover {
+  color: var(--color-text);
+}
+
+.header-link-active {
   color: var(--color-text);
 }
 

@@ -1,22 +1,46 @@
 import './Header.css'
 
-function Header() {
+interface HeaderProps {
+  page: string
+  setPage: (page: string) => void
+}
+
+function Header({ page, setPage }: HeaderProps) {
+  const navigate = (e: React.MouseEvent, target: string, path: string) => {
+    e.preventDefault()
+    window.history.pushState(null, '', path)
+    setPage(target)
+  }
+
   return (
     <header className="header">
       <div className="header-content">
         <div className="header-left">
-          <div className="header-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="header-title">SSH Radar</h1>
-            <p className="header-subtitle">Real-time failed SSH login analytics with IP geolocation</p>
-          </div>
+          <a
+            href="/"
+            className="header-brand"
+            onClick={(e) => navigate(e, 'home', '/')}
+          >
+            <div className="header-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="header-title">SSH Radar</h1>
+              <p className="header-subtitle">Real-time failed SSH login analytics with IP geolocation</p>
+            </div>
+          </a>
         </div>
         <nav className="header-nav">
+          <a
+            href="/about"
+            className={`header-link ${page === 'about' ? 'header-link-active' : ''}`}
+            onClick={(e) => navigate(e, 'about', '/about')}
+          >
+            About
+          </a>
           <a href="/grafana/d/ssh-radar-main/ssh-radar" className="header-link">
             Full Dashboard
           </a>

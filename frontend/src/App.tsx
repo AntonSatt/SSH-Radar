@@ -1,15 +1,35 @@
+import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import StatsBar from './components/StatsBar'
 import DashboardEmbed from './components/DashboardEmbed'
+import About from './components/About'
 import './App.css'
 
+function getPage() {
+  return window.location.pathname === '/about' ? 'about' : 'home'
+}
+
 function App() {
+  const [page, setPage] = useState(getPage)
+
+  useEffect(() => {
+    const onPopState = () => setPage(getPage())
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
   return (
     <div className="app">
-      <Header />
+      <Header page={page} setPage={setPage} />
       <main className="main">
-        <StatsBar />
-        <DashboardEmbed />
+        {page === 'about' ? (
+          <About />
+        ) : (
+          <>
+            <StatsBar />
+            <DashboardEmbed />
+          </>
+        )}
       </main>
       <footer className="footer">
         <p>

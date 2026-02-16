@@ -43,6 +43,7 @@
 
 .panel-map .panel-iframe {
   height: 900px;
+  flex: none;
 }
 
 @media (max-width: 768px) {
