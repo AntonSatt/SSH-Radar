@@ -1,0 +1,536 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Failed SSH login attempt analytics — parsed from lastb with IP geolocation",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "title": "Total Attempts",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT COUNT(*) AS \"Total Attempts\" FROM failed_logins;",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "title": "Attempts Today",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT COUNT(*) AS \"Today\" FROM failed_logins WHERE timestamp >= CURRENT_DATE;",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "title": "Unique IPs Today",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT COUNT(DISTINCT source_ip) AS \"Unique IPs\" FROM failed_logins WHERE timestamp >= CURRENT_DATE;",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "title": "Countries",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT COUNT(DISTINCT g.country_code) AS \"Countries\" FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.country_code != 'XX';",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "Trends",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "Attempts",
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "scheme",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 5,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "title": "Failed Logins Per Day",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT date_trunc('day', f.timestamp) AS time, COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY 1 ORDER BY 1;",
+          "refId": "A",
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "Attempts",
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "id": 6,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "title": "Failed Logins Per Hour (Last 24h)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT date_trunc('hour', f.timestamp) AS time, COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE f.timestamp >= NOW() - INTERVAL '24 hours' AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY 1 ORDER BY 1;",
+          "refId": "A",
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "Geography",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {}
+      },
+      "gridPos": { "h": 12, "w": 14, "x": 0, "y": 15 },
+      "id": 7,
+      "options": {
+        "basemap": {
+          "config": {},
+          "name": "Layer 0",
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "fixed": "dark-red"
+                },
+                "opacity": 0.7,
+                "rotation": { "fixed": 0 },
+                "size": {
+                  "field": "count",
+                  "min": 3,
+                  "max": 30
+                },
+                "symbol": { "fixed": "img/icons/marker/circle.svg" }
+              }
+            },
+            "location": {
+              "latitude": "latitude",
+              "longitude": "longitude",
+              "mode": "coords"
+            },
+            "name": "Attack Origins",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": { "mode": "details" },
+        "view": {
+          "allLayers": true,
+          "id": "zero",
+          "lat": 20,
+          "lon": 0,
+          "zoom": 2
+        }
+      },
+      "title": "Attack Origins — World Map",
+      "type": "geomap",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT g.latitude, g.longitude, g.country, g.city, COUNT(*) AS count FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.latitude IS NOT NULL AND g.longitude IS NOT NULL AND g.country_code != 'XX' AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY g.latitude, g.longitude, g.country, g.city ORDER BY count DESC LIMIT 200;",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 12, "w": 10, "x": 14, "y": 15 },
+      "id": 8,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": ["value", "percent"]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": true
+        },
+        "tooltip": { "mode": "single" }
+      },
+      "title": "Top 10 Countries",
+      "type": "piechart",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT g.country AS \"Country\", COUNT(*) AS \"Attempts\" FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.country_code != 'XX' AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY g.country ORDER BY \"Attempts\" DESC LIMIT 10;",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "id": 103,
+      "title": "Top Attackers",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 1000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "id": 9,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "title": "Top 10 Source IPs",
+      "type": "bargauge",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT f.source_ip::TEXT || COALESCE(' (' || g.country || ')', '') AS \"IP\", COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE f.source_ip IS NOT NULL AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY f.source_ip, g.country ORDER BY \"Attempts\" DESC LIMIT 10;",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 1000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "id": 10,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "title": "Top 10 Targeted Usernames",
+      "type": "bargauge",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT f.username AS \"Username\", COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY f.username ORDER BY \"Attempts\" DESC LIMIT 10;",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "id": 104,
+      "title": "Recent Attempts",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Timestamp" },
+            "properties": [{ "id": "custom.width", "value": 180 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Username" },
+            "properties": [{ "id": "custom.width", "value": 120 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Source IP" },
+            "properties": [{ "id": "custom.width", "value": 150 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Country" },
+            "properties": [{ "id": "custom.width", "value": 120 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "City" },
+            "properties": [{ "id": "custom.width", "value": 120 }]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 37 },
+      "id": 11,
+      "options": {
+        "showHeader": true,
+        "footer": { "enablePagination": true }
+      },
+      "title": "Recent Failed Login Attempts",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": { "type": "postgres" },
+          "rawSql": "SELECT f.timestamp AS \"Timestamp\", f.username AS \"Username\", f.source_ip::TEXT AS \"Source IP\", f.protocol AS \"Protocol\", g.country AS \"Country\", g.city AS \"City\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) ORDER BY f.timestamp DESC LIMIT 100;",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": ["ssh-radar", "security"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": { "type": "postgres" },
+        "definition": "SELECT DISTINCT country FROM ip_geolocations WHERE country_code != 'XX' ORDER BY country;",
+        "includeAll": true,
+        "multi": true,
+        "name": "country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM ip_geolocations WHERE country_code != 'XX' ORDER BY country;",
+        "refresh": 2,
+        "type": "query",
+        "label": "Country"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SSH Radar",
+  "uid": "ssh-radar-main",
+  "version": 1
+}

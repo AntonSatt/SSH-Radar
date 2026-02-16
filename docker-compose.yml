@@ -1,0 +1,86 @@
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ssh-radar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ssh_radar}
+      POSTGRES_USER: ${POSTGRES_USER:-ssh_radar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ./sql/002_views.sql:/docker-entrypoint-initdb.d/002_views.sql:ro
+    ports:
+      # Only localhost — for the host-based ingestion script
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ssh_radar}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Grafana ──────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: ssh-radar-grafana
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Anonymous access for public viewers
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      # Admin password
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?Set GF_SECURITY_ADMIN_PASSWORD in .env}
+      # Serve under /grafana subpath
+      GF_SERVER_ROOT_URL: "https://${DOMAIN:-localhost}/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Allow embedding in iframes (for the React frontend)
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      # Database connection for provisioned datasource
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-ssh_radar}
+      POSTGRES_USER: ${POSTGRES_USER:-ssh_radar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      # Only localhost — Nginx on host reverse-proxies to this
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── React Frontend ───────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ssh-radar-frontend
+    restart: unless-stopped
+    ports:
+      # Only localhost — Nginx on host reverse-proxies to this
+      - "127.0.0.1:8080:80"
+    networks:
+      - internal
+
+volumes:
+  pgdata:
+  grafana_data:
+
+networks:
+  internal:
+    driver: bridge

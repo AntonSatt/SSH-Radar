@@ -1,0 +1,203 @@
+# SSH Radar
+
+Real-time monitoring and visualization of failed SSH login attempts on a Linux server.
+
+Parses `lastb` output, enriches IPs with geolocation data via MaxMind GeoLite2, stores everything in PostgreSQL, and presents it through a branded React frontend with embedded Grafana dashboards.
+
+**Live instance:** [ssh-radar.antonsatt.com](https://ssh-radar.antonsatt.com)
+
+## Architecture
+
+```
+                         ┌──────────────────────────────────┐
+                         │        Oracle Cloud ARM          │
+                         │      Ubuntu, 12GB RAM, 2 CPU     │
+                         │                                  │
+Internet ──► 443 ──►     │  ┌────────────────────────┐      │
+                         │  │     Nginx (host)       │      │
+                         │  │   HTTPS + reverse proxy │      │
+                         │  └────┬───────────┬───────┘      │
+                         │       │           │              │
+                         │   /grafana/       /              │
+                         │       │           │              │
+                         │       ▼           ▼              │
+                         │  ┌────────┐  ┌──────────┐       │
+                         │  │Grafana │  │ React    │       │
+                         │  │ :3000  │  │ Frontend │       │
+                         │  └───┬────┘  │  :8080   │       │
+                         │      │       └──────────┘       │
+                         │      │                          │
+                         │      ▼                          │
+                         │  ┌───────────┐                  │
+                         │  │PostgreSQL │◄── Ingestion     │
+                         │  │  :5432    │    (host cron)   │
+                         │  └───────────┘    lastb -F      │
+                         │                   + GeoLite2    │
+                         └──────────────────────────────────┘
+```
+
+- **Ingestion** runs on the host (not in Docker) because `lastb` needs root access to `/var/log/btmp`
+- **PostgreSQL, Grafana, and the frontend** run as Docker containers, ports bound to `127.0.0.1` only
+- **Nginx** on the host handles HTTPS (Certbot/Let's Encrypt) and reverse-proxies to the containers
+
+## Features
+
+- Parses `lastb -F` output with support for IPv4, IPv6, and edge cases
+- Deduplicates login attempts using a unique constraint on `(username, source_ip, timestamp)`
+- Offline IP geolocation via MaxMind GeoLite2-City database
+- Grafana dashboard with 11 panels:
+  - Stat cards (total attempts, today's attempts, unique IPs, unique countries)
+  - Time series (daily and hourly trends)
+  - World geomap with proportional markers
+  - Top 10 countries (pie chart), top IPs, top usernames (bar gauges)
+  - Detailed table of recent attempts
+- React frontend with live stats and embedded Grafana panels
+- Automated ingestion via cron (every 5 minutes)
+
+## Prerequisites
+
+- Docker and Docker Compose
+- Python 3.8+ (on the host, for ingestion)
+- Nginx (on the host)
+- A free [MaxMind GeoLite2 license key](https://www.maxmind.com/en/geolite2/signup)
+
+## Setup
+
+### 1. Clone and configure
+
+```bash
+git clone https://github.com/antonsatt/ssh-radar.git
+cd ssh-radar
+cp .env.example .env
+```
+
+Edit `.env` and fill in:
+- `POSTGRES_PASSWORD` — a strong password for the database
+- `DB_PASSWORD` — same password (used by the host ingestion script)
+- `GF_SECURITY_ADMIN_PASSWORD` — Grafana admin password
+- `MAXMIND_LICENSE_KEY` — your GeoLite2 license key
+- `DOMAIN` — your domain (e.g. `ssh-radar.antonsatt.com`)
+
+### 2. Download the GeoLite2 database
+
+```bash
+bash src/update_geodb.sh
+```
+
+### 3. Install Python dependencies (on host)
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Start the containers
+
+```bash
+docker compose up -d
+```
+
+This starts PostgreSQL (with schema auto-initialized), Grafana (with provisioned datasource and dashboard), and the React frontend.
+
+### 5. Configure Nginx
+
+```bash
+sudo cp nginx/ssh-radar.conf /etc/nginx/sites-available/ssh-radar
+sudo ln -s /etc/nginx/sites-available/ssh-radar /etc/nginx/sites-enabled/
+sudo certbot --nginx -d ssh-radar.antonsatt.com
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 6. Set up the cron job
+
+```bash
+sudo crontab -e
+```
+
+Add:
+
+```
+*/5 * * * * /opt/ssh-radar/scripts/run_ingest.sh >> /var/log/ssh-radar-ingest.log 2>&1
+```
+
+### 7. Initial data load
+
+Run the ingestion manually once to populate historical data:
+
+```bash
+sudo python3 src/ingest.py
+```
+
+## Project Structure
+
+```
+ssh-radar/
+├── docker-compose.yml           # PostgreSQL + Grafana + Frontend
+├── .env.example                 # Configuration template
+├── requirements.txt             # Python dependencies
+├── nginx/
+│   └── ssh-radar.conf           # Host Nginx reverse proxy config
+├── sql/
+│   ├── 001_schema.sql           # Tables, indexes, constraints
+│   └── 002_views.sql            # Views and materialized views
+├── src/
+│   ├── config.py                # DB connection, env vars, logging
+│   ├── parser.py                # lastb -F output parser
+│   ├── ingest.py                # Ingestion pipeline (CLI entry point)
+│   ├── geolocate.py             # MaxMind GeoLite2 IP enrichment
+│   └── update_geodb.sh          # Download/update GeoLite2 database
+├── scripts/
+│   └── run_ingest.sh            # Host cron runner script
+├── grafana/
+│   ├── provisioning/            # Auto-configured datasource + dashboard
+│   └── dashboards/
+│       └── ssh-radar.json       # Dashboard with 11 panels
+├── frontend/
+│   ├── src/                     # React + TypeScript + Vite
+│   ├── Dockerfile               # Multi-stage build (Node → Nginx)
+│   └── nginx.conf               # SPA fallback config
+├── tests/
+│   ├── test_parser.py           # 18 parser tests
+│   ├── test_geolocate.py        # 17 geolocation tests (3 skip without DB)
+│   └── fixtures/
+│       └── sample_lastb.txt     # Test data
+└── data/                        # GeoLite2-City.mmdb (gitignored)
+```
+
+## Testing
+
+```bash
+python3 -m pytest tests/ -v
+```
+
+35 tests total (32 pass, 3 skip). The 3 skipped tests require the GeoLite2 `.mmdb` database file in `data/`.
+
+## Tech Stack
+
+| Component     | Technology                          |
+|---------------|-------------------------------------|
+| Language      | Python 3                            |
+| Database      | PostgreSQL 16                       |
+| Geolocation   | MaxMind GeoLite2 (offline)          |
+| Visualization | Grafana OSS (anonymous viewer)      |
+| Frontend      | React 18 + TypeScript + Vite        |
+| Reverse Proxy | Nginx + Certbot                     |
+| Deployment    | Docker Compose on Oracle Free Tier  |
+| Scheduling    | Host cron (every 5 minutes)         |
+
+## Security
+
+- All Docker ports bound to `127.0.0.1` only (not exposed to the internet)
+- Grafana anonymous access limited to Viewer role
+- HTTPS enforced via Certbot/Let's Encrypt
+- No secrets in the repository (`.env` is gitignored)
+- Ingestion runs on the host with controlled DB access
+
+## Author
+
+**Anton Satterkvist** — [antonsatt.com](https://antonsatt.com)
+
+Built as a portfolio project to demonstrate DevOps skills: Linux, Docker, PostgreSQL, Grafana, Python, CI/CD, and infrastructure security.
+
+## License
+
+MIT
