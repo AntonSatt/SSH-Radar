@@ -16,7 +16,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -46,7 +46,7 @@
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT COUNT(*) AS \"Total Attempts\" FROM failed_logins;",
           "refId": "A",
           "format": "table"
@@ -54,7 +54,7 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -84,7 +84,7 @@
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT COUNT(*) AS \"Today\" FROM failed_logins WHERE timestamp >= CURRENT_DATE;",
           "refId": "A",
           "format": "table"
@@ -92,7 +92,7 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -122,7 +122,7 @@
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT COUNT(DISTINCT source_ip) AS \"Unique IPs\" FROM failed_logins WHERE timestamp >= CURRENT_DATE;",
           "refId": "A",
           "format": "table"
@@ -130,7 +130,7 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -160,7 +160,7 @@
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT COUNT(DISTINCT g.country_code) AS \"Countries\" FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.country_code != 'XX';",
           "refId": "A",
           "format": "table"
@@ -175,7 +175,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -204,7 +204,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT date_trunc('day', f.timestamp) AS time, COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY 1 ORDER BY 1;",
           "refId": "A",
           "format": "time_series"
@@ -212,7 +212,7 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -239,7 +239,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT date_trunc('hour', f.timestamp) AS time, COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE f.timestamp >= NOW() - INTERVAL '24 hours' AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY 1 ORDER BY 1;",
           "refId": "A",
           "format": "time_series"
@@ -254,7 +254,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {}
       },
@@ -314,7 +314,7 @@
       "type": "geomap",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT g.latitude, g.longitude, g.country, g.city, COUNT(*) AS count FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.latitude IS NOT NULL AND g.longitude IS NOT NULL AND g.country_code != 'XX' AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY g.latitude, g.longitude, g.country, g.city ORDER BY count DESC LIMIT 200;",
           "refId": "A",
           "format": "table"
@@ -322,7 +322,7 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -352,7 +352,7 @@
       "type": "piechart",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT g.country AS \"Country\", COUNT(*) AS \"Attempts\" FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.country_code != 'XX' AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY g.country ORDER BY \"Attempts\" DESC LIMIT 10;",
           "refId": "A",
           "format": "table"
@@ -367,7 +367,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -402,7 +402,7 @@
       "type": "bargauge",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT f.source_ip::TEXT || COALESCE(' (' || g.country || ')', '') AS \"IP\", COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE f.source_ip IS NOT NULL AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY f.source_ip, g.country ORDER BY \"Attempts\" DESC LIMIT 10;",
           "refId": "A",
           "format": "table"
@@ -410,7 +410,7 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -445,7 +445,7 @@
       "type": "bargauge",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT f.username AS \"Username\", COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY f.username ORDER BY \"Attempts\" DESC LIMIT 10;",
           "refId": "A",
           "format": "table"
@@ -460,7 +460,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "postgres", "uid": "" },
+      "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -496,7 +496,7 @@
       "type": "table",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
           "rawSql": "SELECT f.timestamp AS \"Timestamp\", f.username AS \"Username\", f.source_ip::TEXT AS \"Source IP\", f.protocol AS \"Protocol\", g.country AS \"Country\", g.city AS \"City\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) ORDER BY f.timestamp DESC LIMIT 100;",
           "refId": "A",
           "format": "table"
@@ -511,7 +511,7 @@
     "list": [
       {
         "current": {},
-        "datasource": { "type": "postgres" },
+        "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
         "definition": "SELECT DISTINCT country FROM ip_geolocations WHERE country_code != 'XX' ORDER BY country;",
         "includeAll": true,
         "multi": true,

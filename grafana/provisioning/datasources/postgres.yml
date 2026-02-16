@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: PostgreSQL
+    uid: ssh-radar-postgres
     type: postgres
     access: proxy
     url: ${POSTGRES_HOST}:${POSTGRES_PORT}

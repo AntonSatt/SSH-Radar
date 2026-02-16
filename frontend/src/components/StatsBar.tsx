@@ -24,7 +24,7 @@ function StatsBar() {
             queries: [
               {
                 refId: 'stats',
-                datasource: { type: 'postgres' },
+                datasource: { type: 'postgres', uid: 'ssh-radar-postgres' },
                 rawSql: `SELECT 
                   (SELECT COUNT(*) FROM failed_logins) AS total_attempts,
                   (SELECT COUNT(*) FROM failed_logins WHERE timestamp >= CURRENT_DATE) AS attempts_today,
