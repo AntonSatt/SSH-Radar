@@ -56,7 +56,7 @@ function createBlipPlayer() {
 function LiveFeed() {
   const [visible, setVisible] = useState<Attempt[]>([])
   const [expanded, setExpanded] = useState(true)
-  const [soundEnabled, setSoundEnabled] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
   const queueRef = useRef<Attempt[]>([]) // sorted by epoch ascending
   const seenRef = useRef<Set<string>>(new Set())
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
