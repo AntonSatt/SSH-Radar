@@ -10,42 +10,64 @@ interface Attempt {
   city: string
 }
 
-const FETCH_INTERVAL = 30_000
+const FETCH_INTERVAL = 60_000
+const DELAY_SECONDS = 300 // 5 minute replay delay
 const MAX_VISIBLE = 50
 
 function LiveFeed() {
   const [visible, setVisible] = useState<Attempt[]>([])
   const [expanded, setExpanded] = useState(true)
-  const queueRef = useRef<Attempt[]>([])
+  const queueRef = useRef<Attempt[]>([]) // sorted by epoch ascending
   const seenRef = useRef<Set<string>>(new Set())
-  const dripTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isFirstFetch = useRef(true)
   const listRef = useRef<HTMLDivElement>(null)
 
   const makeKey = (a: Attempt) => `${a.epoch}-${a.ip}-${a.username}`
 
-  // Drip-feed: pop one entry from queue and prepend to visible list
-  const dripNext = useCallback(() => {
+  // Schedule the next entry to appear at its real time + 5 min offset
+  const scheduleNext = useCallback(() => {
     if (queueRef.current.length === 0) {
-      dripTimerRef.current = null
+      timerRef.current = null
       return
     }
 
-    const next = queueRef.current.shift()!
-    setVisible((prev) => {
-      const updated = [next, ...prev]
-      return updated.slice(0, MAX_VISIBLE)
-    })
+    const next = queueRef.current[0]
+    const showAtMs = (next.epoch + DELAY_SECONDS) * 1000
+    const waitMs = Math.max(0, showAtMs - Date.now())
 
-    // Schedule next drip with delay based on remaining queue size
-    if (queueRef.current.length > 0) {
-      // Spread remaining entries over the time until next fetch
-      const delay = Math.max(800, FETCH_INTERVAL / (queueRef.current.length + 1))
-      dripTimerRef.current = setTimeout(dripNext, Math.min(delay, 3000))
-    } else {
-      dripTimerRef.current = null
-    }
+    timerRef.current = setTimeout(() => {
+      queueRef.current.shift()
+      setVisible((prev) => [next, ...prev].slice(0, MAX_VISIBLE))
+      scheduleNext()
+    }, waitMs)
   }, [])
+
+  // Insert entries into queue maintaining epoch ascending order
+  const enqueue = useCallback(
+    (entries: Attempt[]) => {
+      if (entries.length === 0) return
+
+      for (const entry of entries) {
+        const key = makeKey(entry)
+        if (seenRef.current.has(key)) continue
+        seenRef.current.add(key)
+
+        // Insert in sorted position (ascending by epoch)
+        let idx = queueRef.current.length
+        while (idx > 0 && queueRef.current[idx - 1].epoch > entry.epoch) {
+          idx--
+        }
+        queueRef.current.splice(idx, 0, entry)
+      }
+
+      // If no timer running, start the scheduler
+      if (!timerRef.current) {
+        scheduleNext()
+      }
+    },
+    [scheduleNext],
+  )
 
   useEffect(() => {
     const fetchAttempts = async () => {
@@ -58,7 +80,8 @@ function LiveFeed() {
               {
                 refId: 'feed',
                 datasource: { type: 'postgres', uid: 'ssh-radar-postgres' },
-                rawSql: "SELECT EXTRACT(EPOCH FROM f.timestamp)::BIGINT AS epoch, f.username, host(f.source_ip) AS ip, COALESCE(g.country, 'Unknown') AS country, COALESCE(g.city, '') AS city FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip ORDER BY f.timestamp DESC LIMIT 50",
+                rawSql:
+                  "SELECT EXTRACT(EPOCH FROM f.timestamp)::BIGINT AS epoch, f.username, host(f.source_ip) AS ip, COALESCE(g.country, 'Unknown') AS country, COALESCE(g.city, '') AS city FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip ORDER BY f.timestamp DESC LIMIT 100",
                 format: 'table',
               },
             ],
@@ -74,6 +97,8 @@ function LiveFeed() {
         if (!frames || frames.length === 0) return
         const values = frames[0].data?.values
         if (!values || values.length < 5) return
+
+        const nowSec = Date.now() / 1000
 
         const rows: Attempt[] = values[0].map((_: number, i: number) => {
           const epoch = values[0][i]
@@ -95,38 +120,36 @@ function LiveFeed() {
         })
 
         if (isFirstFetch.current) {
-          // On first load, show the most recent entries immediately,
-          // then drip-feed the rest to create the streaming effect
           isFirstFetch.current = false
-          const immediate = rows.slice(0, 5)
-          const queued = rows.slice(5).reverse() // oldest first so they drip in order
 
-          immediate.forEach((a) => seenRef.current.add(makeKey(a)))
-          queued.forEach((a) => seenRef.current.add(makeKey(a)))
+          // Split into already-past-delay (show immediately) and pending (schedule)
+          const ready: Attempt[] = []
+          const pending: Attempt[] = []
 
-          setVisible(immediate)
-          queueRef.current = queued
-          if (queued.length > 0) {
-            dripTimerRef.current = setTimeout(dripNext, 1200)
-          }
-        } else {
-          // Subsequent fetches: find new entries not yet seen
-          const newEntries: Attempt[] = []
           for (const row of rows) {
             const key = makeKey(row)
-            if (!seenRef.current.has(key)) {
-              newEntries.push(row)
-              seenRef.current.add(key)
+            if (seenRef.current.has(key)) continue
+            seenRef.current.add(key)
+
+            if (row.epoch + DELAY_SECONDS <= nowSec) {
+              ready.push(row)
+            } else {
+              pending.push(row)
             }
           }
 
-          if (newEntries.length > 0) {
-            // Reverse so oldest drips in first, newest last (appears at top)
-            queueRef.current.push(...newEntries.reverse())
-            if (!dripTimerRef.current) {
-              dripTimerRef.current = setTimeout(dripNext, 800)
-            }
+          // Show the most recent ready entries immediately (newest first)
+          setVisible(ready.slice(0, MAX_VISIBLE))
+
+          // Queue pending entries sorted by epoch ascending for real-time replay
+          pending.sort((a, b) => a.epoch - b.epoch)
+          queueRef.current = pending
+          if (pending.length > 0) {
+            scheduleNext()
           }
+        } else {
+          // Subsequent fetches: enqueue any new entries
+          enqueue(rows)
         }
 
         // Keep seen set from growing too large
@@ -143,9 +166,9 @@ function LiveFeed() {
     const interval = setInterval(fetchAttempts, FETCH_INTERVAL)
     return () => {
       clearInterval(interval)
-      if (dripTimerRef.current) clearTimeout(dripTimerRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [dripNext])
+  }, [scheduleNext, enqueue])
 
   if (visible.length === 0) return null
 
@@ -155,7 +178,7 @@ function LiveFeed() {
         <div className="live-feed-title">
           <span className="live-dot" />
           Live Feed
-          <span className="live-feed-subtitle">Recent failed login attempts (5 min delay)</span>
+          <span className="live-feed-subtitle">Failed login attempts (5 min delay)</span>
         </div>
         <svg
           className={`live-feed-toggle ${expanded ? 'live-feed-toggle-open' : ''}`}
