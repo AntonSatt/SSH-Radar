@@ -14,31 +14,37 @@ Parses `lastb` output, enriches IPs with geolocation data via MaxMind GeoLite2, 
                          │      Ubuntu, 12GB RAM, 2 CPU     │
                          │                                  │
 Internet ──► 443 ──►     │  ┌────────────────────────┐      │
-                         │  │     Nginx (host)       │      │
-                         │  │   HTTPS + reverse proxy │      │
-                         │  └────┬───────────┬───────┘      │
-                         │       │           │              │
-                         │   /grafana/       /              │
-                         │       │           │              │
-                         │       ▼           ▼              │
-                         │  ┌────────┐  ┌──────────┐       │
-                         │  │Grafana │  │ React    │       │
-                         │  │ :3000  │  │ Frontend │       │
-                         │  └───┬────┘  │  :8080   │       │
-                         │      │       └──────────┘       │
-                         │      │                          │
-                         │      ▼                          │
-                         │  ┌───────────┐                  │
-                         │  │PostgreSQL │◄── Ingestion     │
-                         │  │  :5432    │    (host cron)   │
-                         │  └───────────┘    lastb -F      │
-                         │                   + GeoLite2    │
+                         │  │  nginx-proxy (Docker)  │      │
+                         │  │  HTTPS + auto SSL certs │      │
+                         │  └──────────┬─────────────┘      │
+                         │             │                    │
+                         │             ▼                    │
+                         │  ┌──────────────────┐            │
+                         │  │  React Frontend  │            │
+                         │  │  (Nginx + SPA)   │            │
+                         │  └────┬─────────────┘            │
+                         │       │                          │
+                         │    /grafana/                     │
+                         │       │                          │
+                         │       ▼                          │
+                         │  ┌────────┐                      │
+                         │  │Grafana │                      │
+                         │  │ :3000  │                      │
+                         │  └───┬────┘                      │
+                         │      │                           │
+                         │      ▼                           │
+                         │  ┌───────────┐                   │
+                         │  │PostgreSQL │◄── Ingestion      │
+                         │  │  :5432    │    (host cron)    │
+                         │  └───────────┘    lastb -F       │
+                         │                   + GeoLite2     │
                          └──────────────────────────────────┘
 ```
 
 - **Ingestion** runs on the host (not in Docker) because `lastb` needs root access to `/var/log/btmp`
-- **PostgreSQL, Grafana, and the frontend** run as Docker containers, ports bound to `127.0.0.1` only
-- **Nginx** on the host handles HTTPS (Certbot/Let's Encrypt) and reverse-proxies to the containers
+- **PostgreSQL, Grafana, and the frontend** run as Docker containers
+- **SSL/HTTPS** is handled automatically by an [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) + Let's Encrypt companion container (can be shared with other services on the same server)
+- The **frontend container** serves the React SPA and reverse-proxies `/grafana/` to the Grafana container internally
 
 ## Features
 
@@ -58,8 +64,8 @@ Internet ──► 443 ──►     │  ┌───────────�
 
 - Docker and Docker Compose
 - Python 3.8+ (on the host, for ingestion)
-- Nginx (on the host)
-- A free [MaxMind GeoLite2 license key](https://www.maxmind.com/en/geolite2/signup)
+- An [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) + [letsencrypt-companion](https://github.com/nginx-proxy/acme-companion) setup on the Docker host (or any reverse proxy that routes based on `VIRTUAL_HOST`)
+- A free [MaxMind GeoLite2 account](https://www.maxmind.com/en/geolite2/signup) (for IP geolocation)
 
 ## Setup
 
@@ -75,7 +81,7 @@ Edit `.env` and fill in:
 - `POSTGRES_PASSWORD` — a strong password for the database
 - `DB_PASSWORD` — same password (used by the host ingestion script)
 - `GF_SECURITY_ADMIN_PASSWORD` — Grafana admin password
-- `MAXMIND_ACCOUNT_ID` — your MaxMind account ID (shown on your account page)
+- `MAXMIND_ACCOUNT_ID` — your MaxMind account ID (shown at https://www.maxmind.com/en/accounts/current)
 - `MAXMIND_LICENSE_KEY` — your GeoLite2 license key
 - `DOMAIN` — your domain (e.g. `ssh-radar.antonsatt.com`)
 
@@ -100,16 +106,11 @@ docker compose up -d
 
 This starts PostgreSQL (with schema auto-initialized), Grafana (with provisioned datasource and dashboard), and the React frontend.
 
-### 5. Configure Nginx
+The frontend container exposes `VIRTUAL_HOST` and `LETSENCRYPT_HOST` environment variables. If you have an nginx-proxy + letsencrypt-companion running on the same Docker host, it will automatically:
+- Route traffic for your domain to the frontend container
+- Provision and renew SSL certificates via Let's Encrypt
 
-```bash
-sudo cp nginx/ssh-radar.conf /etc/nginx/sites-available/ssh-radar
-sudo ln -s /etc/nginx/sites-available/ssh-radar /etc/nginx/sites-enabled/
-sudo certbot --nginx -d ssh-radar.antonsatt.com
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-### 6. Set up the cron job
+### 5. Set up the cron job
 
 ```bash
 sudo crontab -e
@@ -121,7 +122,7 @@ Add:
 */5 * * * * /opt/ssh-radar/scripts/run_ingest.sh >> /var/log/ssh-radar-ingest.log 2>&1
 ```
 
-### 7. Initial data load
+### 6. Initial data load
 
 Run the ingestion manually once to populate historical data:
 
@@ -136,8 +137,6 @@ ssh-radar/
 ├── docker-compose.yml           # PostgreSQL + Grafana + Frontend
 ├── .env.example                 # Configuration template
 ├── requirements.txt             # Python dependencies
-├── nginx/
-│   └── ssh-radar.conf           # Host Nginx reverse proxy config
 ├── sql/
 │   ├── 001_schema.sql           # Tables, indexes, constraints
 │   └── 002_views.sql            # Views and materialized views
@@ -156,7 +155,7 @@ ssh-radar/
 ├── frontend/
 │   ├── src/                     # React + TypeScript + Vite
 │   ├── Dockerfile               # Multi-stage build (Node → Nginx)
-│   └── nginx.conf               # SPA fallback config
+│   └── nginx.conf               # SPA fallback + Grafana reverse proxy
 ├── tests/
 │   ├── test_parser.py           # 18 parser tests
 │   ├── test_geolocate.py        # 17 geolocation tests (3 skip without DB)
@@ -183,15 +182,15 @@ ssh-radar/
 | Geolocation   | MaxMind GeoLite2 (offline)          |
 | Visualization | Grafana OSS (anonymous viewer)      |
 | Frontend      | React 18 + TypeScript + Vite        |
-| Reverse Proxy | Nginx + Certbot                     |
+| Reverse Proxy | nginx-proxy + Let's Encrypt         |
 | Deployment    | Docker Compose on Oracle Free Tier  |
 | Scheduling    | Host cron (every 5 minutes)         |
 
 ## Security
 
-- All Docker ports bound to `127.0.0.1` only (not exposed to the internet)
+- Grafana and PostgreSQL not exposed to the internet (internal Docker network only)
 - Grafana anonymous access limited to Viewer role
-- HTTPS enforced via Certbot/Let's Encrypt
+- HTTPS enforced via Let's Encrypt (auto-provisioned)
 - No secrets in the repository (`.env` is gitignored)
 - Ingestion runs on the host with controlled DB access
 
