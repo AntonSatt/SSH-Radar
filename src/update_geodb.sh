@@ -23,9 +23,8 @@ DB_FILE="$DATA_DIR/GeoLite2-City.mmdb"
 # ── Load .env if present ────────────────────────────────────────────
 
 if [ -f "$PROJECT_DIR/.env" ]; then
-    set -a
-    source "$PROJECT_DIR/.env"
-    set +a
+    MAXMIND_LICENSE_KEY="${MAXMIND_LICENSE_KEY:-$(grep -E '^MAXMIND_LICENSE_KEY=' "$PROJECT_DIR/.env" | cut -d '=' -f2-)}"
+    MAXMIND_ACCOUNT_ID="${MAXMIND_ACCOUNT_ID:-$(grep -E '^MAXMIND_ACCOUNT_ID=' "$PROJECT_DIR/.env" | cut -d '=' -f2-)}"
 fi
 
 # ── Check for license key ───────────────────────────────────────────
