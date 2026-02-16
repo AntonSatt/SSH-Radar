@@ -29,11 +29,13 @@ if [ ! -x "$PYTHON" ]; then
     exit 1
 fi
 
-# Load environment variables
+# Load environment variables (line-by-line to handle special characters in values)
 if [ -f "$PROJECT_DIR/.env" ]; then
-    set -a
-    source "$PROJECT_DIR/.env"
-    set +a
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ -z "$key" || "$key" =~ ^# ]] && continue
+        export "$key=$value"
+    done < "$PROJECT_DIR/.env"
 fi
 
 # Run ingestion
