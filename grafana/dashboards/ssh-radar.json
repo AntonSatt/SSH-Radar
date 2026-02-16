@@ -205,7 +205,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
-          "rawSql": "SELECT date_trunc('day', f.timestamp) AS time, COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY 1 ORDER BY 1;",
+          "rawSql": "SELECT date_trunc('day', f.timestamp) AS time, COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND g.country IN (${country:sqlstring}) GROUP BY 1 ORDER BY 1;",
           "refId": "A",
           "format": "time_series"
         }
@@ -240,7 +240,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
-          "rawSql": "SELECT date_trunc('hour', f.timestamp) AS time, COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE f.timestamp >= NOW() - INTERVAL '24 hours' AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY 1 ORDER BY 1;",
+          "rawSql": "SELECT date_trunc('hour', f.timestamp) AS time, COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE f.timestamp >= NOW() - INTERVAL '24 hours' AND g.country IN (${country:sqlstring}) GROUP BY 1 ORDER BY 1;",
           "refId": "A",
           "format": "time_series"
         }
@@ -315,7 +315,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
-          "rawSql": "SELECT g.latitude, g.longitude, g.country, g.city, COUNT(*) AS count FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.latitude IS NOT NULL AND g.longitude IS NOT NULL AND g.country_code != 'XX' AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY g.latitude, g.longitude, g.country, g.city ORDER BY count DESC LIMIT 200;",
+          "rawSql": "SELECT g.latitude, g.longitude, g.country, g.city, COUNT(*) AS count FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.latitude IS NOT NULL AND g.longitude IS NOT NULL AND g.country_code != 'XX' AND $__timeFilter(f.timestamp) AND g.country IN (${country:sqlstring}) GROUP BY g.latitude, g.longitude, g.country, g.city ORDER BY count DESC LIMIT 200;",
           "refId": "A",
           "format": "table"
         }
@@ -353,7 +353,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
-          "rawSql": "SELECT g.country AS \"Country\", COUNT(*) AS \"Attempts\" FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.country_code != 'XX' AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY g.country ORDER BY \"Attempts\" DESC LIMIT 10;",
+          "rawSql": "SELECT g.country AS \"Country\", COUNT(*) AS \"Attempts\" FROM failed_logins f JOIN ip_geolocations g ON f.source_ip = g.ip WHERE g.country_code != 'XX' AND $__timeFilter(f.timestamp) AND g.country IN (${country:sqlstring}) GROUP BY g.country ORDER BY \"Attempts\" DESC LIMIT 10;",
           "refId": "A",
           "format": "table"
         }
@@ -403,7 +403,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
-          "rawSql": "SELECT f.source_ip::TEXT || COALESCE(' (' || g.country || ')', '') AS \"IP\", COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE f.source_ip IS NOT NULL AND $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY f.source_ip, g.country ORDER BY \"Attempts\" DESC LIMIT 10;",
+          "rawSql": "SELECT f.source_ip::TEXT || COALESCE(' (' || g.country || ')', '') AS \"IP\", COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE f.source_ip IS NOT NULL AND $__timeFilter(f.timestamp) AND g.country IN (${country:sqlstring}) GROUP BY f.source_ip, g.country ORDER BY \"Attempts\" DESC LIMIT 10;",
           "refId": "A",
           "format": "table"
         }
@@ -446,7 +446,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
-          "rawSql": "SELECT f.username AS \"Username\", COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) GROUP BY f.username ORDER BY \"Attempts\" DESC LIMIT 10;",
+          "rawSql": "SELECT f.username AS \"Username\", COUNT(*) AS \"Attempts\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND g.country IN (${country:sqlstring}) GROUP BY f.username ORDER BY \"Attempts\" DESC LIMIT 10;",
           "refId": "A",
           "format": "table"
         }
@@ -497,7 +497,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "ssh-radar-postgres" },
-          "rawSql": "SELECT f.timestamp AS \"Timestamp\", f.username AS \"Username\", f.source_ip::TEXT AS \"Source IP\", f.protocol AS \"Protocol\", g.country AS \"Country\", g.city AS \"City\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND ('$country' = '$__all' OR g.country IN ($country)) ORDER BY f.timestamp DESC LIMIT 100;",
+          "rawSql": "SELECT f.timestamp AS \"Timestamp\", f.username AS \"Username\", f.source_ip::TEXT AS \"Source IP\", f.protocol AS \"Protocol\", g.country AS \"Country\", g.city AS \"City\" FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip WHERE $__timeFilter(f.timestamp) AND g.country IN (${country:sqlstring}) ORDER BY f.timestamp DESC LIMIT 100;",
           "refId": "A",
           "format": "table"
         }
