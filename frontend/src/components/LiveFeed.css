@@ -12,6 +12,17 @@
   justify-content: space-between;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--color-border);
+  width: 100%;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.live-feed-header:hover {
+  color: var(--color-text);
 }
 
 .live-feed-title {
@@ -22,7 +33,16 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-text);
+  color: inherit;
+}
+
+.live-feed-toggle {
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.live-feed-toggle-open {
+  transform: rotate(180deg);
 }
 
 .live-dot {
