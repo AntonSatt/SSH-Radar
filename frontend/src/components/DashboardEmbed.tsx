@@ -7,7 +7,7 @@ const PANELS = [
   {
     id: 7,
     title: 'Attack Origins',
-    className: 'panel-wide',
+    className: 'panel-wide panel-map',
   },
   {
     id: 5,
