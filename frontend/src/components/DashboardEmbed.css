@@ -46,6 +46,11 @@
   flex: none;
 }
 
+.panel-pie .panel-iframe {
+  height: 550px;
+  flex: none;
+}
+
 @media (max-width: 768px) {
   .dashboard-grid {
     grid-template-columns: 1fr;

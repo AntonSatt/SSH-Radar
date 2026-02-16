@@ -35,12 +35,12 @@ const PANELS = [
   {
     id: 8,
     title: 'Attempts by Country',
-    className: 'panel-half',
+    className: 'panel-half panel-pie',
   },
   {
     id: 12,
     title: 'Unique IPs by Country',
-    className: 'panel-half',
+    className: 'panel-half panel-pie',
   },
   {
     id: 11,
