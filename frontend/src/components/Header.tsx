@@ -17,7 +17,7 @@ function Header() {
           </div>
         </div>
         <nav className="header-nav">
-          <a href="/grafana" className="header-link">
+          <a href="/grafana/d/ssh-radar-main/ssh-radar" className="header-link">
             Full Dashboard
           </a>
           <a href="https://antonsatt.com" target="_blank" rel="noopener noreferrer" className="header-link">
