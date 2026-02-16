@@ -43,7 +43,7 @@
 .top-usernames-scroll {
   display: flex;
   width: max-content;
-  animation: marquee 45s linear infinite;
+  animation: marquee 60s linear infinite;
 }
 
 .top-usernames-scroll:hover {
@@ -124,7 +124,7 @@
   }
 
   .top-usernames-scroll {
-    animation-duration: 35s;
+    animation-duration: 45s;
   }
 
   .top-username-count {
