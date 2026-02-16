@@ -26,7 +26,7 @@ function LiveFeed() {
               {
                 refId: 'feed',
                 datasource: { type: 'postgres', uid: 'ssh-radar-postgres' },
-                rawSql: "SELECT TO_CHAR(f.timestamp, 'HH24:MI:SS') AS time, f.username, host(f.source_ip) AS ip, COALESCE(g.country, 'Unknown') AS country, COALESCE(g.city, '') AS city FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip ORDER BY f.timestamp DESC LIMIT 50",
+                rawSql: "SELECT TO_CHAR(f.timestamp, 'HH24:MI:SS') AS event_time, f.username, host(f.source_ip) AS ip, COALESCE(g.country, 'Unknown') AS country, COALESCE(g.city, '') AS city FROM failed_logins f LEFT JOIN ip_geolocations g ON f.source_ip = g.ip ORDER BY f.timestamp DESC LIMIT 50",
                 format: 'table',
               },
             ],
