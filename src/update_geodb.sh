@@ -5,12 +5,12 @@
 # Requires a free MaxMind license key:
 #   1. Sign up at https://www.maxmind.com/en/geolite2/signup
 #   2. Generate a license key at https://www.maxmind.com/en/accounts/current/license-key
-#   3. Set MAXMIND_LICENSE_KEY and MAXMIND_ACCOUNT_ID environment variables
+#   3. Add MAXMIND_ACCOUNT_ID and MAXMIND_LICENSE_KEY to your .env file
 #
 # Usage:
-#   export MAXMIND_ACCOUNT_ID="your_account_id"
-#   export MAXMIND_LICENSE_KEY="your_key_here"
 #   bash src/update_geodb.sh
+#
+# The script auto-loads .env from the project root.
 #
 
 set -euo pipefail
@@ -19,6 +19,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DATA_DIR="${GEODB_DIR:-$PROJECT_DIR/data}"
 DB_FILE="$DATA_DIR/GeoLite2-City.mmdb"
+
+# ── Load .env if present ────────────────────────────────────────────
+
+if [ -f "$PROJECT_DIR/.env" ]; then
+    set -a
+    source "$PROJECT_DIR/.env"
+    set +a
+fi
 
 # ── Check for license key ───────────────────────────────────────────
 
