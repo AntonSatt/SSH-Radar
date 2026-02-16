@@ -21,7 +21,7 @@ function TopUsernames() {
                 refId: 'topUsers',
                 datasource: { type: 'postgres', uid: 'ssh-radar-postgres' },
                 rawSql:
-                  'SELECT username, COUNT(*) AS cnt FROM failed_logins GROUP BY username ORDER BY cnt DESC LIMIT 5',
+                  'SELECT username, COUNT(*) AS cnt FROM failed_logins GROUP BY username ORDER BY cnt DESC LIMIT 10',
                 format: 'table',
               },
             ],
@@ -56,17 +56,22 @@ function TopUsernames() {
 
   if (entries.length === 0) return null
 
+  const chips = entries.map((e, i) => (
+    <span key={e.username} className="top-username-chip">
+      <span className="top-username-rank">{i + 1}</span>
+      <span className="top-username-name">{e.username}</span>
+      <span className="top-username-count">{e.count.toLocaleString()}</span>
+    </span>
+  ))
+
   return (
     <div className="top-usernames">
       <span className="top-usernames-label">Top Targets</span>
-      <div className="top-usernames-list">
-        {entries.map((e, i) => (
-          <span key={e.username} className="top-username-chip">
-            <span className="top-username-rank">{i + 1}</span>
-            <span className="top-username-name">{e.username}</span>
-            <span className="top-username-count">{e.count.toLocaleString()}</span>
-          </span>
-        ))}
+      <div className="top-usernames-track">
+        <div className="top-usernames-scroll">
+          <div className="top-usernames-list">{chips}</div>
+          <div className="top-usernames-list" aria-hidden="true">{chips}</div>
+        </div>
       </div>
     </div>
   )
