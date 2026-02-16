@@ -48,7 +48,7 @@ function DashboardEmbed() {
         <div key={panel.id} className={`dashboard-panel ${panel.className}`}>
           <h3 className="panel-title">{panel.title}</h3>
           <iframe
-            src={`${GRAFANA_BASE}?orgId=1&panelId=${panel.id}&theme=dark&kiosk`}
+            src={`${GRAFANA_BASE}?orgId=1&panelId=${panel.id}&theme=dark&kiosk&from=now-30d&to=now`}
             frameBorder="0"
             className="panel-iframe"
             title={panel.title}
