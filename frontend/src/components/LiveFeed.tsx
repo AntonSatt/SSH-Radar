@@ -1,20 +1,46 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import './LiveFeed.css'
 
 interface Attempt {
   timestamp: string
+  epoch: number
   username: string
   ip: string
   country: string
   city: string
 }
 
+const FETCH_INTERVAL = 30_000
+const MAX_VISIBLE = 50
+
 function LiveFeed() {
-  const [attempts, setAttempts] = useState<Attempt[]>([])
+  const [visible, setVisible] = useState<Attempt[]>([])
   const [expanded, setExpanded] = useState(true)
-  const [newIds, setNewIds] = useState<Set<string>>(new Set())
+  const queueRef = useRef<Attempt[]>([])
+  const seenRef = useRef<Set<string>>(new Set())
+  const dripTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isFirstFetch = useRef(true)
   const listRef = useRef<HTMLDivElement>(null)
-  const prevCountRef = useRef(0)
+
+  const makeKey = (a: Attempt) => `${a.epoch}-${a.ip}-${a.username}`
+
+  // Drip-feed: pop one entry from queue and prepend to visible list
+  const dripNext = useCallback(() => {
+    if (queueRef.current.length === 0) return
+
+    const next = queueRef.current.shift()!
+    setVisible((prev) => {
+      const updated = [next, ...prev]
+      return updated.slice(0, MAX_VISIBLE)
+    })
+
+    // Schedule next drip with delay based on remaining queue size
+    if (queueRef.current.length > 0) {
+      // Spread remaining entries over the time until next fetch
+      const delay = Math.max(800, FETCH_INTERVAL / (queueRef.current.length + 1))
+      dripTimerRef.current = setTimeout(dripNext, Math.min(delay, 3000))
+    }
+  }, [])
 
   useEffect(() => {
     const fetchAttempts = async () => {
@@ -40,37 +66,68 @@ function LiveFeed() {
 
         const data = await response.json()
         const frames = data?.results?.feed?.frames
-        if (frames && frames.length > 0) {
-          const values = frames[0].data?.values
-          if (values && values.length >= 5) {
-            const rows: Attempt[] = values[0].map((_: string, i: number) => {
-              const date = new Date(values[0][i] * 1000)
-              const local = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-              return {
-                timestamp: local,
-                username: values[1][i],
-                ip: values[2][i],
-                country: values[3][i],
-                city: values[4][i],
-              }
-            })
+        if (!frames || frames.length === 0) return
+        const values = frames[0].data?.values
+        if (!values || values.length < 5) return
 
-            // Mark new entries that appeared since last fetch
-            if (prevCountRef.current > 0 && rows.length > 0) {
-              const fresh = new Set<string>()
-              for (let i = 0; i < rows.length; i++) {
-                const key = `${rows[i].timestamp}-${rows[i].ip}-${rows[i].username}`
-                if (i < rows.length - prevCountRef.current + 5) {
-                  fresh.add(key)
-                }
-              }
-              setNewIds(fresh)
-              setTimeout(() => setNewIds(new Set()), 3000)
-            }
-
-            prevCountRef.current = rows.length
-            setAttempts(rows)
+        const rows: Attempt[] = values[0].map((_: number, i: number) => {
+          const epoch = values[0][i]
+          const date = new Date(epoch * 1000)
+          const local = date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+          })
+          return {
+            timestamp: local,
+            epoch,
+            username: values[1][i],
+            ip: values[2][i],
+            country: values[3][i],
+            city: values[4][i],
           }
+        })
+
+        if (isFirstFetch.current) {
+          // On first load, show the most recent entries immediately,
+          // then drip-feed the rest to create the streaming effect
+          isFirstFetch.current = false
+          const immediate = rows.slice(0, 5)
+          const queued = rows.slice(5).reverse() // oldest first so they drip in order
+
+          immediate.forEach((a) => seenRef.current.add(makeKey(a)))
+          queued.forEach((a) => seenRef.current.add(makeKey(a)))
+
+          setVisible(immediate)
+          queueRef.current = queued
+          if (queued.length > 0) {
+            dripTimerRef.current = setTimeout(dripNext, 1200)
+          }
+        } else {
+          // Subsequent fetches: find new entries not yet seen
+          const newEntries: Attempt[] = []
+          for (const row of rows) {
+            const key = makeKey(row)
+            if (!seenRef.current.has(key)) {
+              newEntries.push(row)
+              seenRef.current.add(key)
+            }
+          }
+
+          if (newEntries.length > 0) {
+            // Reverse so oldest drips in first, newest last (appears at top)
+            queueRef.current.push(...newEntries.reverse())
+            if (!dripTimerRef.current) {
+              dripTimerRef.current = setTimeout(dripNext, 800)
+            }
+          }
+        }
+
+        // Keep seen set from growing too large
+        if (seenRef.current.size > 500) {
+          const arr = Array.from(seenRef.current)
+          seenRef.current = new Set(arr.slice(arr.length - 200))
         }
       } catch {
         // silently fail
@@ -78,11 +135,14 @@ function LiveFeed() {
     }
 
     fetchAttempts()
-    const interval = setInterval(fetchAttempts, 30_000)
-    return () => clearInterval(interval)
-  }, [])
+    const interval = setInterval(fetchAttempts, FETCH_INTERVAL)
+    return () => {
+      clearInterval(interval)
+      if (dripTimerRef.current) clearTimeout(dripTimerRef.current)
+    }
+  }, [dripNext])
 
-  if (attempts.length === 0) return null
+  if (visible.length === 0) return null
 
   return (
     <div className="live-feed">
@@ -108,25 +168,21 @@ function LiveFeed() {
       </button>
       {expanded && (
         <div className="live-feed-list" ref={listRef}>
-          {attempts.map((a, i) => {
-            const key = `${a.timestamp}-${a.ip}-${a.username}`
-            const isNew = newIds.has(key)
-            return (
-              <div
-                key={`${key}-${i}`}
-                className={`live-feed-row ${isNew ? 'live-feed-row-new' : ''}`}
-              >
-                <span className="feed-time">{a.timestamp}</span>
-                <span className="feed-separator">|</span>
-                <span className="feed-user">{a.username}</span>
-                <span className="feed-separator">@</span>
-                <span className="feed-ip">{a.ip}</span>
-                <span className="feed-location">
-                  {a.city && a.country ? `${a.city}, ${a.country}` : a.country}
-                </span>
-              </div>
-            )
-          })}
+          {visible.map((a, i) => (
+            <div
+              key={`${makeKey(a)}-${i}`}
+              className={`live-feed-row ${i === 0 ? 'live-feed-row-new' : ''}`}
+            >
+              <span className="feed-time">{a.timestamp}</span>
+              <span className="feed-separator">|</span>
+              <span className="feed-user">{a.username}</span>
+              <span className="feed-separator">@</span>
+              <span className="feed-ip">{a.ip}</span>
+              <span className="feed-location">
+                {a.city && a.country ? `${a.city}, ${a.country}` : a.country}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>
