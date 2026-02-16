@@ -26,7 +26,10 @@ function LiveFeed() {
 
   // Drip-feed: pop one entry from queue and prepend to visible list
   const dripNext = useCallback(() => {
-    if (queueRef.current.length === 0) return
+    if (queueRef.current.length === 0) {
+      dripTimerRef.current = null
+      return
+    }
 
     const next = queueRef.current.shift()!
     setVisible((prev) => {
@@ -39,6 +42,8 @@ function LiveFeed() {
       // Spread remaining entries over the time until next fetch
       const delay = Math.max(800, FETCH_INTERVAL / (queueRef.current.length + 1))
       dripTimerRef.current = setTimeout(dripNext, Math.min(delay, 3000))
+    } else {
+      dripTimerRef.current = null
     }
   }, [])
 
@@ -150,7 +155,7 @@ function LiveFeed() {
         <div className="live-feed-title">
           <span className="live-dot" />
           Live Feed
-          <span className="live-feed-subtitle">Recent failed login attempts</span>
+          <span className="live-feed-subtitle">Recent failed login attempts (5 min delay)</span>
         </div>
         <svg
           className={`live-feed-toggle ${expanded ? 'live-feed-toggle-open' : ''}`}
