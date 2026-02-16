@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import './DashboardEmbed.css'
 
 // Grafana panel embed URLs using kiosk mode
@@ -6,11 +7,6 @@ const GRAFANA_BASE = '/grafana/d-solo/ssh-radar-main/ssh-radar'
 const DEFAULT_TIME = 'from=now-30d&to=now'
 
 const PANELS = [
-  {
-    id: 7,
-    title: 'Attack Origins',
-    className: 'panel-wide panel-map',
-  },
   {
     id: 5,
     title: 'Daily Trend',
@@ -50,8 +46,40 @@ const PANELS = [
 ]
 
 function DashboardEmbed() {
+  const [mapExpanded, setMapExpanded] = useState(false)
+
   return (
     <div className="dashboard-grid">
+      <div className={`dashboard-panel panel-wide panel-map ${mapExpanded ? 'panel-map-expanded' : 'panel-map-collapsed'}`}>
+        <button
+          className="panel-title panel-toggle"
+          onClick={() => setMapExpanded(!mapExpanded)}
+        >
+          Attack Origins — World Map
+          <svg
+            className={`panel-toggle-icon ${mapExpanded ? 'panel-toggle-open' : ''}`}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        {mapExpanded && (
+          <iframe
+            src={`${GRAFANA_BASE}?orgId=1&panelId=7&theme=dark&kiosk&${DEFAULT_TIME}`}
+            frameBorder="0"
+            className="panel-iframe"
+            title="Attack Origins"
+          />
+        )}
+      </div>
+
       {PANELS.map((panel) => (
         <div key={panel.id} className={`dashboard-panel ${panel.className}`}>
           <h3 className="panel-title">{panel.title}</h3>

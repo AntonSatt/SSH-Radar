@@ -42,8 +42,35 @@
 }
 
 .panel-map .panel-iframe {
-  height: 700px;
+  height: 600px;
   flex: none;
+}
+
+.panel-map-collapsed {
+  cursor: pointer;
+}
+
+.panel-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+}
+
+.panel-toggle:hover {
+  color: var(--color-text);
+}
+
+.panel-toggle-icon {
+  transition: transform 0.2s;
+}
+
+.panel-toggle-open {
+  transform: rotate(180deg);
 }
 
 .panel-pie .panel-iframe {
