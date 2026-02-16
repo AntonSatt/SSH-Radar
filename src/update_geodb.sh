@@ -56,7 +56,7 @@ DOWNLOAD_URL="https://download.maxmind.com/geoip/databases/GeoLite2-City/downloa
 TEMP_FILE=$(mktemp /tmp/geolite2-city.XXXXXX.tar.gz)
 
 echo "Downloading GeoLite2-City database..."
-if ! curl -sS -u "${MAXMIND_ACCOUNT_ID}:${MAXMIND_LICENSE_KEY}" -o "$TEMP_FILE" "$DOWNLOAD_URL"; then
+if ! curl -sSL -u "${MAXMIND_ACCOUNT_ID}:${MAXMIND_LICENSE_KEY}" -o "$TEMP_FILE" "$DOWNLOAD_URL"; then
     echo "ERROR: Download failed. Check your license key."
     rm -f "$TEMP_FILE"
     exit 1
