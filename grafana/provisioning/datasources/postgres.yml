@@ -10,6 +10,7 @@ datasources:
     user: ${POSTGRES_USER}
     isDefault: true
     jsonData:
+      database: ${POSTGRES_DB}
       sslmode: disable
       maxOpenConns: 10
       maxIdleConns: 5
