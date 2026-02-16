@@ -10,6 +10,8 @@ Parses `lastb` output, enriches IPs with geolocation data via MaxMind GeoLite2, 
   <img src="images-readme/frontpage-1.png" alt="SSH Radar — World map showing attack origins" width="100%">
 </p>
 
+--------------------------------------------------------------------------------------
+
 <p align="center">
   <img src="images-readme/frontpage-2.png" alt="SSH Radar — Dashboard with stats, trends, and top attackers" width="100%">
 </p>

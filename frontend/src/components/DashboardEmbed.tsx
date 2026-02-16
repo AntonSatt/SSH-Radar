@@ -47,7 +47,7 @@ const PANELS = [
 ]
 
 function DashboardEmbed() {
-  const [mapExpanded, setMapExpanded] = useState(false)
+  const [mapExpanded, setMapExpanded] = useState(true)
   const [refreshKey, setRefreshKey] = useState(Date.now())
 
   // Reload all iframes every 5 minutes instead of relying on Grafana's internal refresh
