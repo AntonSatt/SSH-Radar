@@ -226,6 +226,25 @@ ssh-radar/
 - No secrets in the repository (`.env` is gitignored)
 - Ingestion runs on the host with controlled DB access
 
+## Future Enhancements
+
+### Capture attempted passwords (Cowrie integration)
+
+OpenSSH deliberately does not log password attempts, so the current pipeline only captures *which user was tried from which IP* — never the actual password an attacker typed. Replacing sshd on the honeypot port with [Cowrie](https://github.com/cowrie/cowrie) — a Python-based SSH/Telnet honeypot — would unlock a much richer data set:
+
+- Attempted username + password combos (Top-10 passwords, top credential-stuffing dictionaries)
+- Commands attackers run after "logging in" to Cowrie's fake shell (malware droppers, recon commands, etc.)
+- Files attackers try to upload (free threat-intel samples)
+- Client banners / SSH implementations used by scanners
+
+**Migration sketch:**
+- Admin sshd stays on its non-standard port, untouched
+- Cowrie listens on port 22 instead of real sshd — configured with Docker or systemd, running as an unprivileged user with authbind/capabilities for the privileged port
+- Extend the ingestion pipeline with a Cowrie JSON-log parser alongside the existing `lastb` parser, writing to a new `password_attempts` table (source_ip, username, password, timestamp) + a `commands` table for session activity
+- Add dashboard panels: Top 10 attempted passwords, Top 10 username/password combos, common post-login commands
+
+Tradeoffs: Cowrie is a separate codebase to patch and maintain, and a determined attacker can fingerprint it as a honeypot. For a project whose *purpose* is collecting attack data, those are acceptable costs.
+
 ## Author
 
 **Anton Satterkvist** — [antonsatt.com](https://antonsatt.com)
