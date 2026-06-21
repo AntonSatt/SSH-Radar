@@ -102,6 +102,22 @@ def insert_records(records: list[dict]) -> int:
     try:
         cur = conn.cursor()
 
+        # lastb is re-read in full on every run, so the vast majority of these
+        # records already exist. Without a pre-filter we'd hand all ~150k+ rows
+        # to INSERT ... ON CONFLICT every 5 minutes — and Postgres calls
+        # nextval() for every *attempted* row, conflict or not. That silently
+        # burned the id sequence to its int4 ceiling and broke ingestion. So
+        # only consider attempts at or after the newest one already stored.
+        cur.execute("SELECT max(timestamp) FROM failed_logins")
+        latest_stored = cur.fetchone()[0]
+        if latest_stored is not None:
+            parsed_count = len(records)
+            records = [r for r in records if r["timestamp"] >= latest_stored]
+            logger.info(
+                "Newest stored attempt: %s — %d of %d parsed records are new enough to check",
+                latest_stored, len(records), parsed_count,
+            )
+
         for record in records:
             # Validate IP — if it's a hostname (not an IP), set to NULL
             source_ip = record["source_ip"]
@@ -132,7 +148,7 @@ def insert_records(records: list[dict]) -> int:
                 inserted += 1
 
         conn.commit()
-        logger.info("Inserted %d new records (out of %d parsed)", inserted, len(records))
+        logger.info("Inserted %d new records (out of %d candidates)", inserted, len(records))
 
     except Exception:
         conn.rollback()

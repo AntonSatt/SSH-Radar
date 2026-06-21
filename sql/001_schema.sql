@@ -8,7 +8,7 @@ BEGIN;
 -- Stores every failed login attempt from lastb
 -- ============================================================
 CREATE TABLE IF NOT EXISTS failed_logins (
-    id              SERIAL PRIMARY KEY,
+    id              BIGSERIAL PRIMARY KEY,      -- bigint: ON CONFLICT spends a sequence value per attempted row
     username        VARCHAR(64)     NOT NULL,
     source_ip       INET,                       -- NULL if no IP (e.g. local console)
     timestamp       TIMESTAMPTZ     NOT NULL,
