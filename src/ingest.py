@@ -24,7 +24,7 @@ import os
 # Add src to path when running as script
 sys.path.insert(0, os.path.dirname(__file__))
 
-from config import get_db_connection, logger, LASTB_COMMAND
+from config import get_db_connection, logger, BTMP_ROTATED_PATH, LASTB_COMMAND
 from parser import parse_lastb_output
 
 
@@ -38,13 +38,16 @@ LASTB_ENV = {**os.environ, "LC_ALL": "C.UTF-8"}
 USERNAME_MAX_LEN = 64
 
 
-def get_lastb_output(source: str = "command", filepath: str | None = None) -> str:
+def get_lastb_output(
+    source: str = "command", filepath: str | None = None, btmp_path: str | None = None
+) -> str:
     """
     Get lastb output from the specified source.
 
     Args:
         source: "command" to run lastb, "file" to read a file, "stdin" to read stdin
         filepath: Path to file if source is "file"
+        btmp_path: btmp file for lastb to read instead of its default
 
     Returns:
         Raw lastb output as string
@@ -59,10 +62,11 @@ def get_lastb_output(source: str = "command", filepath: str | None = None) -> st
         return sys.stdin.read()
 
     # Default: run lastb command
-    logger.info("Running: %s", LASTB_COMMAND)
+    cmd = LASTB_COMMAND.split() + (["-f", btmp_path] if btmp_path else [])
+    logger.info("Running: %s", " ".join(cmd))
     try:
         result = subprocess.run(
-            LASTB_COMMAND.split(),
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,
@@ -80,6 +84,31 @@ def get_lastb_output(source: str = "command", filepath: str | None = None) -> st
     except PermissionError:
         logger.error("Permission denied. lastb requires root privileges.")
         sys.exit(1)
+
+
+def get_latest_stored():
+    """Timestamp of the newest stored attempt, or None for an empty table."""
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT max(timestamp) FROM failed_logins")
+        return cur.fetchone()[0]
+    finally:
+        conn.close()
+
+
+def misses_rotated_records(records: list[dict], latest_stored) -> bool:
+    """
+    True when the current btmp starts after the newest stored attempt.
+
+    logrotate moves btmp to btmp.1 (monthly on the host). Attempts logged
+    between the last run and the rotation are then only in btmp.1, and the
+    new btmp no longer reaches back to anything already stored. On an empty
+    table there is nothing to catch up on.
+    """
+    if latest_stored is None:
+        return False
+    return not records or min(r["timestamp"] for r in records) > latest_stored
 
 
 def is_valid_ip(value: str) -> bool:
@@ -243,6 +272,18 @@ def main():
     # Step 2: Parse
     records = parse_lastb_output(raw_output)
     logger.info("Parsed %d records from lastb output", len(records))
+
+    # Right after a log rotation, also read the rotated file so the attempts
+    # logged before it are not lost. The newest-stored filter in
+    # insert_records() keeps the rest of that file from being re-checked.
+    if source == "command" and misses_rotated_records(records, get_latest_stored()):
+        rotated = parse_lastb_output(get_lastb_output(btmp_path=BTMP_ROTATED_PATH))
+        logger.info(
+            "btmp was rotated since the last run: parsed %d records from %s",
+            len(rotated), BTMP_ROTATED_PATH,
+        )
+        records = rotated + records
+
     if not records:
         return
 
