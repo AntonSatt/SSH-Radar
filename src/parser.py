@@ -1,21 +1,26 @@
 """
-Parser for `lastb -F` output.
+Parser for `lastb -F -w` output.
 
 Parses failed login attempt lines from lastb into structured dicts
 ready for database insertion.
 
-lastb -F output format (fixed-width columns):
+lastb -F -w output format (columns padded, but never truncated with -w):
     username terminal    source_ip        Day Mon DD HH:MM:SS YYYY - Day Mon DD HH:MM:SS YYYY  (duration)
 
 Examples:
     root     ssh:notty    192.168.1.100    Fri Feb 14 03:22:15 2026 - Fri Feb 14 03:22:15 2026  (00:00)
     admin    ssh:notty    2001:db8::1      Fri Feb 14 03:22:15 2026 - Fri Feb 14 03:22:15 2026  (00:00)
     root     tty1                          Fri Feb 14 04:00:01 2026 - Fri Feb 14 04:00:01 2026  (00:00)
+    minecraft ssh:notty    192.168.1.100    Fri Feb 14 03:22:15 2026 - Fri Feb 14 03:22:15 2026  (00:00)
+             ssh:notty    192.168.1.100    Fri Feb 14 03:22:15 2026 - Fri Feb 14 03:22:15 2026  (00:00)
+
+Without -w, lastb cuts usernames to 8 characters ("minecraft" becomes
+"minecraf"). The last example is an attempt with an empty username.
 
 Lines to skip:
     - Empty lines
     - Lines starting with "btmp begins"
-    - Reboot/shutdown entries
+    - Reboot/shutdown entries (terminal "system")
 """
 
 import re
@@ -31,9 +36,7 @@ from typing import Optional
 #
 # Format: <user> <terminal> <ip?> <Day Mon DD HH:MM:SS YYYY> - <Day Mon DD HH:MM:SS YYYY> (<duration>)
 _TIMESTAMP_PATTERN = r"[A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4}"
-_LASTB_LINE_RE = re.compile(
-    r"^(\S+)\s+"                        # username
-    r"(\S+)\s+"                         # terminal (e.g. ssh:notty, tty1)
+_LINE_TAIL_PATTERN = (
     r"(.*?)\s+"                         # source (IP or hostname, may be empty)
     r"(" + _TIMESTAMP_PATTERN + r")"    # start timestamp
     r"\s+-\s+"                          # separator
@@ -42,13 +45,32 @@ _LASTB_LINE_RE = re.compile(
     r"\s*$"
 )
 
+# Terminals that sshd and login write to btmp. Anchoring on them lets the
+# username be empty or contain spaces, both of which attackers send.
+_TERMINAL_PATTERN = r"ssh:\S+|tty\S*|pts/\S+|console"
+_LASTB_LINE_RE = re.compile(
+    r"^(.*?)\s+"                        # username (may be empty or contain spaces)
+    r"(" + _TERMINAL_PATTERN + r")\s+"  # terminal (e.g. ssh:notty, tty1)
+    + _LINE_TAIL_PATTERN
+)
+
+# Fallback for any other terminal, e.g. "system boot" on reboot entries
+_LASTB_GENERIC_LINE_RE = re.compile(
+    r"^(\S+)\s+"                        # username
+    r"(\S+)\s+"                         # terminal
+    + _LINE_TAIL_PATTERN
+)
+
 # Regex to detect IPv4 or IPv6 addresses
 _IPV4_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 _IPV6_RE = re.compile(r"^[0-9a-fA-F:]+$")  # simplified; inet type in PG will validate
 
 # Lines to skip entirely
 _SKIP_PREFIXES = ("btmp begins", "wtmp begins")
+# Real reboot/shutdown entries have the pseudo-terminal "system". An attacker
+# trying the username "reboot" over SSH is an ordinary failed login.
 _SKIP_USERNAMES = {"reboot", "shutdown"}
+_SKIP_TERMINAL = "system"
 
 # Timestamp format used by lastb -F
 _TIMESTAMP_FORMAT = "%a %b %d %H:%M:%S %Y"
@@ -76,7 +98,7 @@ def parse_lastb_line(line: str) -> Optional[dict]:
     if any(line.strip().lower().startswith(prefix) for prefix in _SKIP_PREFIXES):
         return None
 
-    match = _LASTB_LINE_RE.match(line)
+    match = _LASTB_LINE_RE.match(line) or _LASTB_GENERIC_LINE_RE.match(line)
     if match is None:
         # Try a more lenient parse for edge cases
         return _parse_lenient(line)
@@ -87,7 +109,7 @@ def parse_lastb_line(line: str) -> Optional[dict]:
     timestamp_str = match.group(4)
 
     # Skip reboot/shutdown entries
-    if username.lower() in _SKIP_USERNAMES:
+    if _is_system_entry(username, terminal):
         return None
 
     # Parse timestamp
@@ -151,6 +173,11 @@ def _extract_ip(raw: str) -> Optional[str]:
     return raw
 
 
+def _is_system_entry(username: str, terminal: str) -> bool:
+    """True for reboot/shutdown pseudo-entries, which are not login attempts."""
+    return username.lower() in _SKIP_USERNAMES and terminal == _SKIP_TERMINAL
+
+
 def _infer_protocol(terminal: str) -> str:
     """Infer the login protocol from the terminal field."""
     terminal_lower = terminal.lower()
@@ -189,10 +216,10 @@ def _parse_lenient(line: str) -> Optional[dict]:
         return None
 
     username = parts[0]
-    if username.lower() in _SKIP_USERNAMES:
+    terminal = parts[1] if len(parts) >= 2 else "unknown"
+    if _is_system_entry(username, terminal):
         return None
 
-    terminal = parts[1] if len(parts) >= 2 else "unknown"
     source_raw = parts[2] if len(parts) >= 3 else ""
 
     try:

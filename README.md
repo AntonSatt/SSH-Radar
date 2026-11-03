@@ -46,7 +46,7 @@ Internet ──► 443 ──►     │  ┌───────────�
                          │  ┌───────────┐                   │
                          │  │PostgreSQL │◄── Ingestion      │
                          │  │  :5432    │    (host cron)    │
-                         │  └───────────┘    lastb -F       │
+                         │  └───────────┘    lastb -F -w    │
                          │                   + GeoLite2     │
                          └──────────────────────────────────┘
 ```
@@ -58,7 +58,7 @@ Internet ──► 443 ──►     │  ┌───────────�
 
 ## Features
 
-- Parses `lastb -F` output with support for IPv4, IPv6, and edge cases
+- Parses `lastb -F -w` output with support for IPv4, IPv6, and edge cases (full usernames, empty usernames, usernames with spaces)
 - Deduplicates login attempts using a unique constraint on `(username, source_ip, timestamp)`
 - Offline IP geolocation via MaxMind GeoLite2-City database
 - Grafana dashboard with 11 panels:
@@ -174,12 +174,14 @@ ssh-radar/
 │   └── 002_views.sql            # Views and materialized views
 ├── src/
 │   ├── config.py                # DB connection, env vars, logging
-│   ├── parser.py                # lastb -F output parser
+│   ├── parser.py                # lastb -F -w output parser
 │   ├── ingest.py                # Ingestion pipeline (CLI entry point)
+│   ├── backfill_usernames.py    # Repairs rows stored from truncated lastb output
 │   ├── geolocate.py             # MaxMind GeoLite2 IP enrichment
 │   └── update_geodb.sh          # Download/update GeoLite2 database
 ├── scripts/
-│   └── run_ingest.sh            # Host cron runner script
+│   ├── run_ingest.sh            # Host cron runner script
+│   └── run_backfill.sh          # Corrects stored rows from btmp (dry run by default)
 ├── grafana/
 │   ├── provisioning/            # Auto-configured datasource + dashboard
 │   └── dashboards/
