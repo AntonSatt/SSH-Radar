@@ -34,6 +34,9 @@ MAXMIND_LICENSE_KEY = os.environ.get("MAXMIND_LICENSE_KEY", "")
 # cutting usernames to 8 characters.
 LASTB_COMMAND = os.environ.get("LASTB_COMMAND", "lastb -F -w")
 
+# Where logrotate moves btmp. Only read right after a rotation, see ingest.py.
+BTMP_ROTATED_PATH = os.environ.get("BTMP_ROTATED_PATH", "/var/log/btmp.1")
+
 # ── Logging ──────────────────────────────────────────────────────────
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
