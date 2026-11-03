@@ -1,7 +1,7 @@
 """
 Ingestion pipeline for failed login attempts.
 
-Runs `lastb -F`, parses the output, deduplicates against existing records,
+Runs `lastb -F -w`, parses the output, deduplicates against existing records,
 and bulk-inserts new entries into PostgreSQL.
 
 Usage:
@@ -12,7 +12,7 @@ Usage:
     python3 src/ingest.py --file tests/fixtures/sample_lastb.txt
 
     # From stdin:
-    lastb -F | python3 src/ingest.py --stdin
+    lastb -F -w | python3 src/ingest.py --stdin
 """
 
 import argparse
@@ -26,6 +26,16 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from config import get_db_connection, logger, LASTB_COMMAND
 from parser import parse_lastb_output
+
+
+# Cron already runs with LANG=C.UTF-8 on the host. Pin it so lastb prints
+# non-ASCII usernames as text, not as \ooo escapes, wherever this runs.
+LASTB_ENV = {**os.environ, "LC_ALL": "C.UTF-8"}
+
+# failed_logins.username is VARCHAR(64). lastb -w prints names up to the
+# 32-byte utmp limit, but escapes invalid bytes as \ooo, so a pathological
+# name could still be longer and would fail the whole batch.
+USERNAME_MAX_LEN = 64
 
 
 def get_lastb_output(source: str = "command", filepath: str | None = None) -> str:
@@ -56,6 +66,7 @@ def get_lastb_output(source: str = "command", filepath: str | None = None) -> st
             capture_output=True,
             text=True,
             timeout=30,
+            env=LASTB_ENV,
         )
         if result.returncode != 0 and result.stderr:
             logger.warning("lastb stderr: %s", result.stderr.strip())
@@ -78,6 +89,35 @@ def is_valid_ip(value: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def to_db_values(record: dict) -> tuple:
+    """
+    Turn a parsed record into column values for failed_logins.
+
+    Hostnames become a NULL source_ip (the raw line keeps them), and
+    usernames are cut to fit the column.
+
+    Returns:
+        (username, source_ip, timestamp, terminal, protocol, raw_line)
+    """
+    source_ip = record["source_ip"]
+    if source_ip and not is_valid_ip(source_ip):
+        logger.debug(
+            "Non-IP source '%s' for user '%s' — storing as NULL",
+            source_ip,
+            record["username"],
+        )
+        source_ip = None
+
+    return (
+        record["username"][:USERNAME_MAX_LEN],
+        source_ip,
+        record["timestamp"],
+        record["terminal"],
+        record["protocol"],
+        record["raw_line"],
+    )
 
 
 def insert_records(records: list[dict]) -> int:
@@ -119,30 +159,13 @@ def insert_records(records: list[dict]) -> int:
             )
 
         for record in records:
-            # Validate IP — if it's a hostname (not an IP), set to NULL
-            source_ip = record["source_ip"]
-            if source_ip and not is_valid_ip(source_ip):
-                logger.debug(
-                    "Non-IP source '%s' for user '%s' — storing as NULL",
-                    source_ip,
-                    record["username"],
-                )
-                source_ip = None
-
             cur.execute(
                 """
                 INSERT INTO failed_logins (username, source_ip, timestamp, terminal, protocol, raw_line)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (username, source_ip, timestamp) DO NOTHING
                 """,
-                (
-                    record["username"],
-                    source_ip,
-                    record["timestamp"],
-                    record["terminal"],
-                    record["protocol"],
-                    record["raw_line"],
-                ),
+                to_db_values(record),
             )
             if cur.rowcount > 0:
                 inserted += 1

@@ -30,8 +30,9 @@ MAXMIND_LICENSE_KEY = os.environ.get("MAXMIND_LICENSE_KEY", "")
 
 # ── Ingestion settings ──────────────────────────────────────────────
 
-# Command to run for lastb output. Override for testing.
-LASTB_COMMAND = os.environ.get("LASTB_COMMAND", "lastb -F")
+# Command to run for lastb output. Override for testing. -w keeps lastb from
+# cutting usernames to 8 characters.
+LASTB_COMMAND = os.environ.get("LASTB_COMMAND", "lastb -F -w")
 
 # ── Logging ──────────────────────────────────────────────────────────
 

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# Correct stored failed logins from btmp files (see src/backfill_usernames.py).
+# Dry run unless --apply is given. Needs root, like run_ingest.sh:
+#
+#   sudo scripts/run_backfill.sh /var/log/btmp.1 /var/log/btmp
+#   sudo scripts/run_backfill.sh --apply /var/log/btmp.1 /var/log/btmp
+#
+# Prerequisites:
+#   - Python 3 venv at PROJECT_DIR/.venv (python3 -m venv .venv && .venv/bin/pip install -r requirements.txt)
+#   - PostgreSQL running (via Docker) on localhost:5432
+#   - .env file at PROJECT_DIR/.env with DB credentials
+#   - GeoLite2-City.mmdb downloaded to data/
+#
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+PYTHON="$PROJECT_DIR/.venv/bin/python3"
+
+# Verify venv exists
+if [ ! -x "$PYTHON" ]; then
+    echo "ERROR: Python venv not found at $PROJECT_DIR/.venv"
+    echo "Run: python3 -m venv $PROJECT_DIR/.venv && $PROJECT_DIR/.venv/bin/pip install -r $PROJECT_DIR/requirements.txt"
+    exit 1
+fi
+
+# Load environment variables (line-by-line to handle special characters in values)
+if [ -f "$PROJECT_DIR/.env" ]; then
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ -z "$key" || "$key" =~ ^# ]] && continue
+        export "$key=$value"
+    done < "$PROJECT_DIR/.env"
+fi
+
+"$PYTHON" "$PROJECT_DIR/src/backfill_usernames.py" "$@"

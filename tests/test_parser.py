@@ -106,6 +106,51 @@ class TestParseLastbLine:
         assert result is not None
         assert result["source_ip"] == "10.0.0.1"
 
+    def test_long_username_kept_whole(self):
+        # lastb -w prints the full name and pushes the columns right
+        line = "minecraft ssh:notty    203.0.113.50     Tue Nov  3 10:19:26 2026 - Tue Nov  3 10:19:26 2026  (00:00)"
+        result = parse_lastb_line(line)
+
+        assert result is not None
+        assert result["username"] == "minecraft"
+        assert result["terminal"] == "ssh:notty"
+        assert result["source_ip"] == "203.0.113.50"
+
+    def test_empty_username(self):
+        line = "         ssh:notty    203.0.113.50     Tue Nov  3 06:31:43 2026 - Tue Nov  3 06:31:43 2026  (00:00)"
+        result = parse_lastb_line(line)
+
+        assert result is not None
+        assert result["username"] == ""
+        assert result["terminal"] == "ssh:notty"
+        assert result["source_ip"] == "203.0.113.50"
+        assert result["protocol"] == "ssh"
+
+    def test_username_with_spaces(self):
+        line = '<li class="content text-left">Re ssh:notty    203.0.113.50     Fri Oct  2 09:02:56 2026 - Fri Oct  2 09:02:56 2026  (00:00)'
+        result = parse_lastb_line(line)
+
+        assert result is not None
+        assert result["username"] == '<li class="content text-left">Re'
+        assert result["terminal"] == "ssh:notty"
+        assert result["source_ip"] == "203.0.113.50"
+
+    def test_non_ascii_username(self):
+        line = "行政   ssh:notty    203.0.113.50     Thu Oct 29 03:28:12 2026 - Thu Oct 29 03:28:12 2026  (00:00)"
+        result = parse_lastb_line(line)
+
+        assert result is not None
+        assert result["username"] == "行政"
+
+    def test_reboot_as_ssh_username_is_kept(self):
+        # Only the "system boot"/"system down" pseudo-entries are skipped
+        line = "reboot   ssh:notty    203.0.113.50     Sat Oct 31 20:24:09 2026 - Sat Oct 31 20:24:09 2026  (00:00)"
+        result = parse_lastb_line(line)
+
+        assert result is not None
+        assert result["username"] == "reboot"
+        assert result["protocol"] == "ssh"
+
     def test_timestamp_accuracy(self):
         line = "admin    ssh:notty    198.51.100.23    Fri Feb 14 03:22:16 2026 - Fri Feb 14 03:22:16 2026  (00:00)"
         result = parse_lastb_line(line)
